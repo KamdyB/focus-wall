@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: focus-wall-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: focus
+      POSTGRES_PASSWORD: focus
+      POSTGRES_DB: focuswall
+    ports:
+      - "5432:5432"
+    volumes:
+      - focus_wall_pg:/var/lib/postgresql/data
+volumes:
+  focus_wall_pg:

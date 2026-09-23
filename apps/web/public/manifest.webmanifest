@@ -1,0 +1,9 @@
+{
+  "name": "FOCUS//WALL",
+  "short_name": "FOCUS//WALL",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#061225",
+  "theme_color": "#061225",
+  "description": "A personal wall for focused progress."
+}
