@@ -1,9 +1,0 @@
-{
-  "buildCommand": "cd apps/web && npm install && npm run build",
-  "outputDirectory": "apps/web/dist",
-  "functions": { "api/index.py": { "includeFiles": "apps/api/**" } },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.py" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ]
-}

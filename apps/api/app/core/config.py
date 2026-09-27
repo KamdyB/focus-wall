@@ -16,6 +16,6 @@ settings = Settings()
 
 
 def local_today() -> date:
-    """Today's date in the user's timezone — streak days must not lie."""
+    """Today in the user's timezone — streak days must not lie."""
     tz = timezone(timedelta(hours=settings.tz_offset_hours))
     return datetime.now(tz).date()
