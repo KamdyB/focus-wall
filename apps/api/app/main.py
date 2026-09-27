@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -20,7 +21,11 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="FOCUS//WALL API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="FOCUS//WALL API", version="0.1.0", lifespan=lifespan,
+    docs_url=None if os.getenv("VERCEL") else "/docs",
+    redoc_url=None, openapi_url=None if os.getenv("VERCEL") else "/openapi.json",
+)
 
 _origins = getattr(settings, "allowed_origins", "http://localhost:5173")
 app.add_middleware(
