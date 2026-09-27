@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Goal, Task, XPEvent, DailyStreak
+from app.core.config import local_today
+from app.db.models import DailyStreak, Goal, Task, XPEvent
 from app.db.session import get_session
 from app.services.xp import task_xp
 
@@ -69,7 +70,7 @@ async def complete_task(task_id: UUID, db: AsyncSession = Depends(get_session)):
                 if not remaining.scalars().first():
                     goal.status = "completed"
 
-    today = datetime.now(timezone.utc).date()
+    today = local_today()
     streak_row = await db.execute(select(DailyStreak).where(DailyStreak.day == today))
     streak = streak_row.scalar_one_or_none()
     if streak is None:

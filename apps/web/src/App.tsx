@@ -1,9 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { completeTask, getWall, startFocus } from "./lib/api";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  activateGoal,
+  completeTask,
+  createGoal,
+  finishFocus,
+  getGoals,
+  getWall,
+  startFocus,
+  type GoalItem,
+} from "./lib/api";
 import type { WallData, WallTask } from "./types";
+
+const LANES = ["technical", "career", "academic", "personal", "health"] as const;
 
 function minutesToClock(minutes: number) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+function flash(message: string, setMessage: (value: string) => void) {
+  setMessage(message);
+  window.setTimeout(() => setMessage(""), 4000);
 }
 
 function TaskCard({
@@ -42,13 +58,7 @@ function TaskCard({
   );
 }
 
-function Placeholder({
-  title,
-  note,
-}: {
-  title: string;
-  note: string;
-}) {
+function Placeholder({ title, note }: { title: string; note: string }) {
   return (
     <section className="wall-section">
       <div className="section-heading">
@@ -69,29 +79,32 @@ function Placeholder({
 
 export default function App() {
   const [wall, setWall] = useState<WallData | null>(null);
-
   const [theme, setTheme] = useState<"light" | "dark">(
     (localStorage.getItem("focus-theme") as "light" | "dark") ?? "dark"
   );
-
   const [focus, setFocus] = useState<{
     task: WallTask;
     seconds: number;
+    sessionId: string;
   } | null>(null);
-
   const [message, setMessage] = useState("");
+  const [view, setView] = useState<"wall" | "focus" | "goals" | "opps" | "more">("wall");
 
-  const [view, setView] = useState<
-    "wall" | "focus" | "goals" | "opps" | "more"
-  >("wall");
+  const [goals, setGoals] = useState<GoalItem[]>([]);
+  const [goalsLoaded, setGoalsLoaded] = useState(false);
+  const [form, setForm] = useState({
+    title: "",
+    lane: "technical",
+    attention_cost: 2,
+    importance: 3,
+    due_date: "",
+  });
 
   const load = useCallback(async () => {
     try {
       setWall(await getWall());
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Wall unavailable"
-      );
+      setMessage(error instanceof Error ? error.message : "Wall unavailable");
     }
   }, []);
 
@@ -112,73 +125,127 @@ export default function App() {
     if (!focus) return;
 
     if (focus.seconds <= 0) {
-      setMessage("Focus session complete.");
+      const sessionId = focus.sessionId;
       setFocus(null);
+      flash("FOCUS COMPLETE", setMessage);
+      void load();
+      void finishFocus(sessionId, true).catch(() => undefined);
       return;
     }
 
     const id = window.setInterval(() => {
       setFocus((current) =>
-        current
-          ? {
-              ...current,
-              seconds: current.seconds - 1,
-            }
-          : null
+        current ? { ...current, seconds: current.seconds - 1 } : null
       );
     }, 1000);
 
     return () => window.clearInterval(id);
-  }, [focus]);
+  }, [focus, load]);
 
-  const progress = useMemo(() => {
-    if (!wall) return 0;
+  useEffect(() => {
+    if (view !== "goals") return;
 
-    const used = Math.max(0, wall.xp % 100);
+    let cancelled = false;
 
-    return used;
-  }, [wall]);
+    getGoals()
+      .then((rows) => {
+        if (!cancelled) {
+          setGoals(rows);
+          setGoalsLoaded(true);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setMessage(error instanceof Error ? error.message : "Could not load goals");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
+
+  const progress = useMemo(() => (wall ? Math.max(0, wall.xp % 100) : 0), [wall]);
 
   async function finish(task: WallTask) {
     try {
       await completeTask(task.id);
-
-      setMessage("WALL UPDATED");
-
-      window.setTimeout(() => {
-        setMessage("");
-      }, 4000);
-
+      flash("WALL UPDATED", setMessage);
       await load();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not complete task"
-      );
+      setMessage(error instanceof Error ? error.message : "Could not complete task");
     }
   }
 
   async function focusTask(task: WallTask) {
     try {
       const minutes = Math.min(task.minutes, 45);
-
-      await startFocus(task.id, minutes);
-
+      const started = await startFocus(task.id, minutes);
       setView("focus");
-
-      setFocus({
-        task,
-        seconds: minutes * 60,
-      });
+      setFocus({ task, seconds: minutes * 60, sessionId: started.id });
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not start focus"
-      );
+      setMessage(error instanceof Error ? error.message : "Could not start focus");
     }
   }
 
-  function leaveFocus() {
+  async function endEarly() {
+    if (!focus) return;
+    const sessionId = focus.sessionId;
     setFocus(null);
     setView("wall");
+    try {
+      await finishFocus(sessionId, false);
+      flash("SESSION LOGGED", setMessage);
+    } catch {
+      setMessage("Session could not be logged");
+    }
+    void load();
+  }
+
+  function leaveFocus() {
+    if (focus) {
+      const sessionId = focus.sessionId;
+      void finishFocus(sessionId, false).catch(() => undefined);
+    }
+    setFocus(null);
+    setView("wall");
+  }
+
+  async function activate(goal: GoalItem) {
+    try {
+      await activateGoal(goal.id);
+      flash("GOAL ACTIVE", setMessage);
+      setGoals(await getGoals());
+      void load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not activate goal");
+    }
+  }
+
+  async function submitGoal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!form.title.trim()) return;
+
+    try {
+      await createGoal({
+        title: form.title.trim(),
+        lane: form.lane,
+        attention_cost: form.attention_cost,
+        importance: form.importance,
+        due_date: form.due_date || null,
+      });
+      setForm({
+        title: "",
+        lane: form.lane,
+        attention_cost: 2,
+        importance: 3,
+        due_date: "",
+      });
+      setGoals(await getGoals());
+      flash("PINNED TO GOALS", setMessage);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not create goal");
+    }
   }
 
   if (focus) {
@@ -203,6 +270,10 @@ export default function App() {
           </strong>
 
           <small>Output: {focus.task.output}</small>
+
+          <button className="focus-end" onClick={endEarly}>
+            END EARLY — LOG IT
+          </button>
         </div>
       </main>
     );
@@ -226,9 +297,7 @@ export default function App() {
 
         <button
           className="theme-toggle"
-          onClick={() =>
-            setTheme(theme === "dark" ? "light" : "dark")
-          }
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         >
           {theme === "dark" ? "LIGHT" : "DARK"}
         </button>
@@ -336,37 +405,119 @@ export default function App() {
           </div>
 
           <div className="next-list">
-            {[...(wall?.core ?? []), ...(wall?.small ?? [])].map(
-              (task) => (
-                <div className="next-item focus-row" key={task.id}>
-                  <span>{task.lane}</span>
+            {[...(wall?.core ?? []), ...(wall?.small ?? [])].map((task) => (
+              <div className="next-item focus-row" key={task.id}>
+                <span>{task.lane}</span>
 
-                  <strong>{task.what}</strong>
+                <strong>{task.what}</strong>
 
-                  <button
-                    className="focus-start"
-                    onClick={() => focusTask(task)}
-                  >
-                    START {Math.min(task.minutes, 45)}m
-                  </button>
-                </div>
-              )
-            )}
+                <button className="focus-start" onClick={() => focusTask(task)}>
+                  START {Math.min(task.minutes, 45)}m
+                </button>
+              </div>
+            ))}
           </div>
         </section>
       )}
 
       {view === "goals" && (
-        <Placeholder
-          title="GOALS"
-          note="The API already serves goals. The Goals panel will be wired to the real endpoint next."
-        />
+        <section className="wall-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">GOALS</p>
+              <h2>What the wall is carrying.</h2>
+            </div>
+
+            <span className="budget">
+              {goals
+                .filter((goal) => goal.status === "active")
+                .reduce((sum, goal) => sum + goal.attention_cost, 0)}{" "}
+              load active
+            </span>
+          </div>
+
+          <form className="goal-form" onSubmit={submitGoal}>
+            <input
+              value={form.title}
+              onChange={(event) => setForm({ ...form, title: event.target.value })}
+              placeholder="New goal — pin it to the wall"
+            />
+
+            <select
+              value={form.lane}
+              onChange={(event) => setForm({ ...form, lane: event.target.value })}
+            >
+              {LANES.map((lane) => (
+                <option key={lane} value={lane}>
+                  {lane}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={form.attention_cost}
+              onChange={(event) =>
+                setForm({ ...form, attention_cost: Number(event.target.value) })
+              }
+            >
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  cost {n}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={form.importance}
+              onChange={(event) =>
+                setForm({ ...form, importance: Number(event.target.value) })
+              }
+            >
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  prio {n}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="date"
+              value={form.due_date}
+              onChange={(event) => setForm({ ...form, due_date: event.target.value })}
+            />
+
+            <button type="submit">PIN</button>
+          </form>
+
+          <div className="goal-list">
+            {goalsLoaded && goals.length === 0 && (
+              <p className="muted-note">No goals yet. Pin the first one above.</p>
+            )}
+
+            {goals.map((goal) => (
+              <div className="goal-row" key={goal.id}>
+                <span className={`lane lane-${goal.lane}`}>{goal.lane}</span>
+                <strong>{goal.title}</strong>
+                <span className="goal-meta">
+                  cost {goal.attention_cost} · {goal.open_tasks} open
+                  {goal.due_date ? ` · due ${goal.due_date}` : ""}
+                </span>
+                <span className={`status-chip chip-${goal.status}`}>{goal.status}</span>
+                {goal.status === "inbox" && (
+                  <button className="goal-activate" onClick={() => activate(goal)}>
+                    ACTIVATE
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {view === "opps" && (
         <Placeholder
           title="OPPORTUNITIES"
-          note="Opportunity inbox and lifecycle will live here."
+          note="Opportunity inbox and lifecycle land here — own domain, own pipeline, sorted by deadline."
         />
       )}
 

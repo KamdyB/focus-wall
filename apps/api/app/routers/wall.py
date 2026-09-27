@@ -1,10 +1,11 @@
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Goal, Task, XPEvent, DailyStreak
+from app.core.config import local_today
+from app.db.models import DailyStreak, Goal, Task, XPEvent
 from app.db.session import get_session
 from app.services.planner import select_today
 
@@ -29,8 +30,9 @@ async def today(db: AsyncSession = Depends(get_session)):
 
     streak_result = await db.execute(select(DailyStreak).order_by(DailyStreak.day.desc()).limit(30))
     streak_rows = streak_result.scalars().all()
+
     streak = 0
-    cursor = date.today()
+    cursor = local_today()
     for row in streak_rows:
         if row.day == cursor and row.completed_count > 0:
             streak += 1
@@ -52,7 +54,7 @@ async def today(db: AsyncSession = Depends(get_session)):
         }
 
     return {
-        "date": date.today().isoformat(),
+        "date": local_today().isoformat(),
         "active_load": active_load,
         "capacity": 12,
         "xp": xp,
