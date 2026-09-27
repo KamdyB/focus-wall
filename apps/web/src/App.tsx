@@ -1,20 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
-  activateGoal, completeTask, createGoal, finishFocus, getWall, listGoals, startFocus,
+  activateGoal, advanceOpportunity, completeTask, createGoal, createOpportunity,
+  finishFocus, getWall, listGoals, listOpportunities, startFocus,
 } from "./lib/api";
-import type { Goal, Task } from "./types";
+import type { Goal, Opportunity, Task } from "./types";
 
 type View = "wall" | "focus" | "goals" | "opps" | "more";
 type FocusState = { task: Task; secondsLeft: number; sessionId: string | null };
+
+const LIVE_OPP = new Set(["inbox", "applied", "interview", "offer"]);
+const KIND_LABEL: Record<string, string> = { learn: "LEARN", compete: "COMPETE", earn: "EARN", other: "OTHER" };
 
 function seedTilt(id: string): CSSProperties {
   let h = 5381;
   for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) >>> 0;
   const rx = ((h % 401) / 100 - 2).toFixed(2);
   const ry = (((h >> 3) % 401) / 100 - 2).toFixed(2);
-  return { "--rx": `${rx}deg`, "--ry": `${ry}deg` } as CSSProperties;
-}
+  const tz = ((h >> 6) % 9).toFixed(1);
+  return { "--rx": `${rx}deg`, "--ry": `${ry}deg`, "--tz": `${tz}px` } as CSSProperties;
+
 
 function fmt(s: number): ReactNode {
   const m = Math.floor(s / 60);
@@ -97,6 +102,11 @@ export default function App() {
   const [gTitle, setGTitle] = useState(""); const [gWhy, setGWhy] = useState("");
   const [gLane, setGLane] = useState("technical"); const [gCost, setGCost] = useState(2); const [gDue, setGDue] = useState("");
 
+  const [opps, setOpps] = useState<Opportunity[]>([]);
+  const [oppFilter, setOppFilter] = useState("all");
+  const [oTitle, setOTitle] = useState(""); const [oOrg, setOOrg] = useState("");
+  const [oKind, setOKind] = useState("learn"); const [oDeadline, setODeadline] = useState("");
+
   const wipeRef = useRef<HTMLDivElement>(null);
   const wipeBusy = useRef(false);
 
@@ -133,7 +143,13 @@ export default function App() {
     try { setGoals(await listGoals(goalFilter === "all" ? undefined : goalFilter)); }
     catch (e) { setToast(e instanceof Error ? e.message : "Goals unavailable"); }
   }, [goalFilter]);
-  useEffect(() => { if (view === "goals" || view === "opps") void loadGoals(); }, [view, loadGoals]);
+  useEffect(() => { if (view === "goals") void loadGoals(); }, [view, loadGoals]);
+
+  const loadOpps = useCallback(async () => {
+    try { setOpps(await listOpportunities(oppFilter)); }
+    catch (e) { setToast(e instanceof Error ? e.message : "Opportunities unavailable"); }
+  }, [oppFilter]);
+  useEffect(() => { if (view === "wall" || view === "opps") void loadOpps(); }, [view, loadOpps]);
 
   useEffect(() => {
     if (!toast) return;
@@ -149,7 +165,7 @@ export default function App() {
           const sid = f?.sessionId ?? null;
           window.setTimeout(() => {
             void (async () => {
-              if (sid) { try { await finishFocus(sid, { completed: true }); } catch { /* retry next pass */ } }
+              if (sid) { try { await finishFocus(sid, { completed: true }); } catch { /* retried on next pass */ } }
               setToast("Session complete — logged.");
               setFocus(null);
               void refresh();
@@ -208,6 +224,24 @@ export default function App() {
     }
   }, [loadGoals, refresh]);
 
+  const addOpp = useCallback(async () => {
+    if (!oTitle.trim()) return;
+    try {
+      await createOpportunity({ title: oTitle.trim(), kind: oKind, organisation: oOrg.trim() || undefined, deadline: oDeadline || undefined });
+      setOTitle(""); setOOrg(""); setODeadline("");
+      setToast("Logged to the horizon.");
+      void loadOpps();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Failed to create"); }
+  }, [oTitle, oKind, oOrg, oDeadline, loadOpps]);
+
+  const advance = useCallback(async (o: Opportunity, to: string) => {
+    try {
+      await advanceOpportunity(o.id, { to });
+      setToast(`${o.title} — ${to}.`);
+      void loadOpps();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Move rejected"); }
+  }, [loadOpps]);
+
   const planned = (wall?.planned as Task[] | undefined) ?? [];
   const smallWins = (wall?.small_wins as Task[] | undefined) ?? [];
   const parked = (wall?.parked as Task[] | undefined) ?? [];
@@ -216,10 +250,13 @@ export default function App() {
   const doneCount = planned.filter((t) => t.status === "done").length;
 
   const trayGroups = useMemo(() => {
-    const groups: Record<string, Goal[]> = {};
-    for (const g of goals) (groups[g.lane] ??= []).push(g);
-    return Object.entries(groups);
-  }, [goals]);
+    const groups: Array<[string, Opportunity[]]> = [];
+    for (const kind of ["learn", "compete", "earn", "other"]) {
+      const items = opps.filter((o) => o.kind === kind && LIVE_OPP.has(o.status)).slice(0, 5);
+      if (items.length) groups.push([KIND_LABEL[kind] ?? kind.toUpperCase(), items]);
+    }
+    return groups;
+  }, [opps]);
 
   const sections: Array<[string, Task[]]> = [
     ["Today's three", planned],
@@ -252,6 +289,7 @@ export default function App() {
                   <article
                     key={t.id}
                     className={`task-card${focus?.task.id === t.id ? " card-active" : ""}${t.status === "done" ? " settled" : ""}`}
+                    className={`task-card lane-${t.lane}${focus?.task.id === t.id ? " card-active" : ""}${t.status === "done" ? " settled" : ""}`}
                   >
                     <div className="pin" />
                     <div className="card-tilt" style={seedTilt(t.id)}>
@@ -326,19 +364,37 @@ export default function App() {
 
       {view === "opps" && (
         <main className="panel">
-          <div className="section-label">Horizon</div>
-          {trayGroups.length === 0 && <p className="empty-note">The tray fills as goals land. Create one below.</p>}
-          {trayGroups.map(([lane, gs]) => (
-            <section key={lane}>
-              <div className="section-label">{lane}</div>
-              {gs.map((g) => (
-                <div key={g.id} className="goal-row">
-                  <h4>{g.title}</h4>
-                  <div className="goal-meta">{g.open_tasks} open{g.due_date ? ` · due ${g.due_date}` : ""}</div>
-                </div>
-              ))}
-            </section>
+          <div className="chip-row">
+            {["all", "inbox", "applied", "interview", "offer", "won", "rejected", "archived"].map((f) => (
+              <button key={f} className={`chip${oppFilter === f ? " active" : ""}`} onClick={() => setOppFilter(f)}>{f}</button>
+            ))}
+          </div>
+          {opps.map((o) => (
+            <div key={o.id} className="goal-row">
+              <h4>{o.title}</h4>
+              <div className="goal-meta">
+                {KIND_LABEL[o.kind] ?? o.kind.toUpperCase()}{o.organisation ? ` · ${o.organisation}` : ""}
+                {o.deadline ? ` · due ${o.deadline}` : ""}
+                {o.url ? <> · <a href={o.url} target="_blank" rel="noreferrer">link</a></> : null}
+              </div>
+              <div className="chip-row" style={{ marginBottom: 0 }}>
+                {o.next_states.map((s) => (
+                  <button key={s} className="chip" onClick={() => void advance(o, s)}>{s === "archived" ? "archive" : `→ ${s}`}</button>
+                ))}
+              </div>
+            </div>
           ))}
+          {opps.length === 0 && <p className="empty-note">The horizon is clear. Log something below.</p>}
+          <div className="section-label">Log opportunity</div>
+          <input className="field" placeholder="Title" value={oTitle} onChange={(e) => setOTitle(e.target.value)} />
+          <input className="field" placeholder="Organisation" value={oOrg} onChange={(e) => setOOrg(e.target.value)} />
+          <input className="field" type="date" value={oDeadline} onChange={(e) => setODeadline(e.target.value)} />
+          <div className="chip-row">
+            {["learn", "compete", "earn", "other"].map((k) => (
+              <button key={k} className={`chip${oKind === k ? " active" : ""}`} onClick={() => setOKind(k)}>{KIND_LABEL[k]}</button>
+            ))}
+          </div>
+          <button className="ghost-btn" onClick={() => void addOpp()}>LOG IT</button>
         </main>
       )}
 
@@ -346,20 +402,21 @@ export default function App() {
         <main className="panel">
           <div className="section-label">Utility</div>
           <button className="ghost-btn" onClick={() => switchTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}>SWITCH THEME</button>
-          <p className="empty-note">Queued: opportunities pipeline, projects, agenda.</p>
+          <p className="empty-note">Queued: projects tracker, agenda week strip.</p>
         </main>
       )}
 
       {view === "wall" && (
         <div className={`tray${focus ? " collapsed" : ""}`}>
-          <span className="tray-title">Opportunities</span>
-          {trayGroups.map(([lane, gs]) => (
-            <span key={lane} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span className="tray-rule" />
-              <span className="tray-label">{lane}</span>
-              {gs.slice(0, 4).map((g) => (
-                <button key={g.id} className="tray-pill" onClick={() => setView("goals")}>
-                  <span className="tray-dot" />{g.title}
+          <span className="tray-title">Horizon</span>
+          {trayGroups.length === 0 && <span className="tray-label">quiet for now</span>}
+          {trayGroups.map(([label, items], gi) => (
+            <span key={label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {gi > 0 && <span className="tray-rule" />}
+              <span className="tray-label">{label}</span>
+              {items.map((o) => (
+                <button key={o.id} className="tray-pill" onClick={() => setView("opps")}>
+                  <span className="tray-dot" />{o.title}
                 </button>
               ))}
             </span>

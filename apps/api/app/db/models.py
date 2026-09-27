@@ -90,3 +90,28 @@ class DailyStreak(Base):
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     day: Mapped[date] = mapped_column(Date, unique=True)
     completed_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Opportunity(Base):
+    __tablename__ = "opportunities"
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    kind: Mapped[str] = mapped_column(String(24), default="learn")
+    title: Mapped[str] = mapped_column(String(200))
+    organisation: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), default="inbox")
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_touch_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OpportunityEvent(Base):
+    __tablename__ = "opportunity_events"
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    opportunity_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("opportunities.id"), index=True)
+    from_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    to_status: Mapped[str] = mapped_column(String(24))
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

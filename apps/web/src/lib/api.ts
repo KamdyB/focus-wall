@@ -1,4 +1,4 @@
-import type { FocusSession, Goal, Task, WallToday } from "../types";
+import type { FocusSession, Goal, Opportunity, Task, WallToday } from "../types";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const TOKEN = (import.meta.env.VITE_APP_TOKEN as string | undefined) ?? "";
@@ -55,4 +55,32 @@ export function createGoal(payload: {
 
 export function activateGoal(goalId: string, force = false): Promise<unknown> {
   return request(`/goals/${goalId}/activate${force ? "?force=true" : ""}`, { method: "POST" });
+}
+
+export type OpportunityInput = {
+  title: string;
+  kind: string;
+  organisation?: string;
+  url?: string;
+  deadline?: string;
+  notes?: string;
+};
+
+export function listOpportunities(status?: string): Promise<Opportunity[]> {
+  const q = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
+  return request<Opportunity[]>(`/opportunities${q}`);
+}
+
+export function createOpportunity(payload: OpportunityInput): Promise<unknown> {
+  return request("/opportunities", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function advanceOpportunity(id: string, body: { to: string; note?: string }): Promise<unknown> {
+  return request(`/opportunities/${id}/advance`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export function getOpportunityEvents(
+  id: string,
+): Promise<Array<{ from_status: string | null; to_status: string; note: string | null; created_at: string }>> {
+  return request(`/opportunities/${id}/events`);
 }

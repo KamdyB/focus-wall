@@ -42,3 +42,16 @@ export type FocusSession = {
   started_at: string;
   status: string;
 };
+
+export type Opportunity = {
+  id: string;
+  kind: string;
+  title: string;
+  organisation: string | null;
+  url: string | null;
+  deadline: string | null;
+  notes: string | null;
+  status: string;
+  applied_at: string | null;
+  next_states: string[];
+};
