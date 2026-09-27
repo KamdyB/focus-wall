@@ -1,100 +1,58 @@
-import type { WallData } from "../types";
+import type { FocusSession, Goal, Task, WallToday } from "../types";
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-const TOKEN = import.meta.env.VITE_APP_TOKEN ?? "";
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const TOKEN = (import.meta.env.VITE_APP_TOKEN as string | undefined) ?? "";
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-App-Token": TOKEN,
-      ...(options.headers ?? {}),
-    },
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", "X-App-Token": TOKEN, ...(init.headers ?? {}) },
   });
-
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
+  if (!res.ok) {
+    let detail = res.statusText;
     try {
-      const body = await response.json();
-      const detail = body?.detail;
-      if (typeof detail === "string") message = detail;
-      else if (detail?.message) message = String(detail.message);
-    } catch {
-      // non-JSON error body — keep the default message
-    }
-    throw new Error(message);
+      const body = await res.json();
+      detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);
+    } catch { /* non-JSON error body */ }
+    throw new Error(detail);
   }
-
-  return (await response.json()) as T;
+  return res.json() as Promise<T>;
 }
 
-export interface StartedFocus {
-  id: string;
-  started_at: string;
-  status: string;
+export function getWall(): Promise<WallToday> {
+  return request<WallToday>("/wall/today");
 }
 
-export interface GoalItem {
-  id: string;
-  title: string;
-  why: string | null;
-  lane: string;
-  status: string;
-  attention_cost: number;
-  importance: number;
-  due_date: string | null;
-  open_tasks: number;
+export function completeTask(taskId: string): Promise<Task> {
+  return request<Task>(`/tasks/${taskId}/complete`, { method: "POST" });
 }
 
-export interface GoalInput {
-  title: string;
-  why?: string | null;
-  lane: string;
-  attention_cost: number;
-  importance: number;
-  due_date?: string | null;
-}
-
-export async function getWall() {
-  return request<WallData>("/wall/today");
-}
-
-export async function completeTask(taskId: string) {
-  return request<{ status: string; xp_awarded: boolean }>(`/tasks/${taskId}/complete`, {
+export function startFocus(taskId: string, minutes: number): Promise<FocusSession> {
+  return request<FocusSession>("/focus-sessions", {
     method: "POST",
+    body: JSON.stringify({ task_id: taskId, planned_minutes: minutes }),
   });
 }
 
-export async function startFocus(taskId: string, minutes: number) {
-  return request<StartedFocus>("/focus-sessions", {
+export function finishFocus(sessionId: string, body: { completed: boolean }): Promise<unknown> {
+  return request(`/focus-sessions/${sessionId}/finish`, {
     method: "POST",
-    body: JSON.stringify({ task_id: taskId, preset_minutes: minutes }),
+    body: JSON.stringify(body),
   });
 }
 
-export async function finishFocus(sessionId: string, completed: boolean) {
-  return request<{ status: string; completed: boolean }>(
-    `/focus-sessions/${sessionId}/finish`,
-    { method: "POST", body: JSON.stringify({ completed }) },
-  );
+export function listGoals(status?: string): Promise<Goal[]> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request<Goal[]>(`/goals${q}`);
 }
 
-export async function getGoals(status?: string) {
-  const query = status ? `?status=${encodeURIComponent(status)}` : "";
-  return request<GoalItem[]>(`/goals${query}`);
+export function createGoal(payload: {
+  title: string; why?: string; lane: string;
+  attention_cost: number; importance: number; due_date?: string;
+}): Promise<unknown> {
+  return request("/goals", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export async function activateGoal(goalId: string, force = false) {
-  return request<{ id: string; status: string; active_load: number }>(
-    `/goals/${goalId}/activate${force ? "?force=true" : ""}`,
-    { method: "POST" },
-  );
-}
-
-export async function createGoal(payload: GoalInput) {
-  return request<{ id: string; title: string; status: string }>("/goals", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+export function activateGoal(goalId: string, force = false): Promise<unknown> {
+  return request(`/goals/${goalId}/activate${force ? "?force=true" : ""}`, { method: "POST" });
 }

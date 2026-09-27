@@ -1,552 +1,379 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
-  activateGoal,
-  completeTask,
-  createGoal,
-  finishFocus,
-  getGoals,
-  getWall,
-  startFocus,
-  type GoalItem,
+  activateGoal, completeTask, createGoal, finishFocus, getWall, listGoals, startFocus,
 } from "./lib/api";
-import type { WallData, WallTask } from "./types";
+import type { Goal, Task } from "./types";
 
-const LANES = ["technical", "career", "academic", "personal", "health"] as const;
+type View = "wall" | "focus" | "goals" | "opps" | "more";
+type FocusState = { task: Task; secondsLeft: number; sessionId: string | null };
 
-function minutesToClock(minutes: number) {
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+function seedTilt(id: string): CSSProperties {
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) >>> 0;
+  const rx = ((h % 401) / 100 - 2).toFixed(2);
+  const ry = (((h >> 3) % 401) / 100 - 2).toFixed(2);
+  return { "--rx": `${rx}deg`, "--ry": `${ry}deg` } as CSSProperties;
 }
 
-function flash(message: string, setMessage: (value: string) => void) {
-  setMessage(message);
-  window.setTimeout(() => setMessage(""), 4000);
+function fmt(s: number): ReactNode {
+  const m = Math.floor(s / 60);
+  const sec = String(s % 60).padStart(2, "0");
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    return <>{h}<span className="dim">:</span>{String(m % 60).padStart(2, "0")}<span className="dim">:</span>{sec}</>;
+  }
+  return <>{String(m).padStart(2, "0")}<span className="dim">:</span>{sec}</>;
 }
 
-function TaskCard({
-  task,
-  onComplete,
-  onFocus,
-}: {
-  task: WallTask;
-  onComplete: () => void;
-  onFocus: () => void;
-}) {
+function HoldButton({ locked, onEngaged }: { locked: boolean; onEngaged: () => void }) {
+  const [filling, setFilling] = useState(false);
+  const timer = useRef<number | null>(null);
+  const fired = useRef(false);
+
+  const start = useCallback(() => {
+    if (locked || timer.current !== null) return;
+    fired.current = false;
+    setFilling(true);
+    timer.current = window.setTimeout(() => { timer.current = null; fired.current = true; setFilling(false); onEngaged(); }, 1500);
+  }, [locked, onEngaged]);
+  const stop = useCallback(() => {
+    if (timer.current !== null) { window.clearTimeout(timer.current); timer.current = null; }
+    if (!fired.current) setFilling(false);
+  }, []);
+  useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
+
   return (
-    <article className="task-card">
-      <div className="pin" />
-
-      <div className="task-top">
-        <span className={`lane lane-${task.lane}`}>{task.lane}</span>
-        <span>{task.minutes} min</span>
-      </div>
-
-      <h3>{task.what}</h3>
-
-      <p className="label">HOW</p>
-      <p>{task.how}</p>
-
-      <p className="label">OUTPUT</p>
-      <p>{task.output}</p>
-
-      <div className="task-actions">
-        <button onClick={onFocus}>Focus</button>
-        <button className="done" onClick={onComplete}>
-          Finish
-        </button>
-      </div>
-    </article>
+    <button
+      className={`hold-btn${filling ? " filling" : ""}${locked ? " locked" : ""}`}
+      disabled={locked}
+      onPointerDown={start} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
+      onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) start(); }}
+      onKeyUp={stop}
+    >
+      <span className="hold-fill" />
+      <span className="hold-label">{locked ? "LOCKED IN" : "HOLD TO ENGAGE"}</span>
+    </button>
   );
 }
 
-function Placeholder({ title, note }: { title: string; note: string }) {
+function NavButton({ active, onGo, children }: { active: boolean; onGo: () => void; children: ReactNode }) {
   return (
-    <section className="wall-section">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">{title}</p>
-          <h2>On the wall next.</h2>
-        </div>
-      </div>
-
-      <article className="task-card placeholder-card">
-        <div className="pin" />
-        <p className="label">NOT BUILT YET</p>
-        <p>{note}</p>
-      </article>
-    </section>
+    <button
+      className={`nav-btn${active ? " active" : ""}`}
+      onClick={(e) => {
+        const b = e.currentTarget;
+        const r = b.getBoundingClientRect();
+        const s = document.createElement("span");
+        s.className = "nav-ripple";
+        s.style.left = `${e.clientX - r.left}px`;
+        s.style.top = `${e.clientY - r.top}px`;
+        b.appendChild(s);
+        const kill = () => s.remove();
+        s.addEventListener("animationend", kill, { once: true });
+        window.setTimeout(kill, 700);
+        onGo();
+      }}
+    >{children}</button>
   );
 }
+
+const GLYPHS: Record<View, ReactNode> = {
+  wall: <svg viewBox="0 0 24 24"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v4H4zM14 15h6v4h-6z" /></svg>,
+  focus: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="1.4" /></svg>,
+  goals: <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h9M5 17h5" /></svg>,
+  opps: <svg viewBox="0 0 24 24"><path d="M4 10h16M7 10v7h10v-7M9 6h6" /></svg>,
+  more: <svg viewBox="0 0 24 24"><path d="M6 12h.01M12 12h.01M18 12h.01" /></svg>,
+};
 
 export default function App() {
-  const [wall, setWall] = useState<WallData | null>(null);
-  const [theme, setTheme] = useState<"light" | "dark">(
-    (localStorage.getItem("focus-theme") as "light" | "dark") ?? "dark"
-  );
-  const [focus, setFocus] = useState<{
-    task: WallTask;
-    seconds: number;
-    sessionId: string;
-  } | null>(null);
-  const [message, setMessage] = useState("");
-  const [view, setView] = useState<"wall" | "focus" | "goals" | "opps" | "more">("wall");
+  const [view, setView] = useState<View>("wall");
+  const [wall, setWall] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
+  const [focus, setFocus] = useState<FocusState | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [goalFilter, setGoalFilter] = useState("active");
+  const [gTitle, setGTitle] = useState(""); const [gWhy, setGWhy] = useState("");
+  const [gLane, setGLane] = useState("technical"); const [gCost, setGCost] = useState(2); const [gDue, setGDue] = useState("");
 
-  const [goals, setGoals] = useState<GoalItem[]>([]);
-  const [goalsLoaded, setGoalsLoaded] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    lane: "technical",
-    attention_cost: 2,
-    importance: 3,
-    due_date: "",
-  });
+  const wipeRef = useRef<HTMLDivElement>(null);
+  const wipeBusy = useRef(false);
 
-  const load = useCallback(async () => {
-    try {
-      setWall(await getWall());
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Wall unavailable");
-    }
+  useEffect(() => {
+    document.documentElement.dataset.theme = localStorage.getItem("fw-theme") === "light" ? "light" : "dark";
   }, []);
 
-  useEffect(() => {
-    load();
-
-    const id = window.setInterval(load, 10 * 60 * 1000);
-
-    return () => window.clearInterval(id);
-  }, [load]);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("focus-theme", theme);
-  }, [theme]);
-
-  useEffect(() => {
-    if (!focus) return;
-
-    if (focus.seconds <= 0) {
-      const sessionId = focus.sessionId;
-      setFocus(null);
-      flash("FOCUS COMPLETE", setMessage);
-      void load();
-      void finishFocus(sessionId, true).catch(() => undefined);
-      return;
-    }
-
-    const id = window.setInterval(() => {
-      setFocus((current) =>
-        current ? { ...current, seconds: current.seconds - 1 } : null
-      );
-    }, 1000);
-
-    return () => window.clearInterval(id);
-  }, [focus, load]);
-
-  useEffect(() => {
-    if (view !== "goals") return;
-
-    let cancelled = false;
-
-    getGoals()
-      .then((rows) => {
-        if (!cancelled) {
-          setGoals(rows);
-          setGoalsLoaded(true);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setMessage(error instanceof Error ? error.message : "Could not load goals");
-        }
-      });
-
-    return () => {
-      cancelled = true;
+  const switchTheme = useCallback((next: "dark" | "light") => {
+    if (document.documentElement.dataset.theme === next) return;
+    const apply = () => {
+      if (wipeBusy.current) return;
+      wipeBusy.current = true;
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem("fw-theme", next);
+      wipeRef.current?.classList.remove("running");
+      window.setTimeout(() => { wipeBusy.current = false; }, 60);
     };
-  }, [view]);
+    const wipe = wipeRef.current;
+    if (!wipe || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { apply(); return; }
+    wipeBusy.current = false;
+    wipe.style.setProperty("--wipe-color", next === "dark" ? "#1a1715" : "#ded4c6");
+    wipe.classList.add("running");
+    const fallback = window.setTimeout(apply, 950);
+    wipe.addEventListener("animationend", () => { window.clearTimeout(fallback); apply(); }, { once: true });
+  }, []);
 
-  const progress = useMemo(() => (wall ? Math.max(0, wall.xp % 100) : 0), [wall]);
+  const refresh = useCallback(async () => {
+    try { setWall((await getWall()) as unknown as Record<string, unknown>); setError(""); }
+    catch (e) { setError(e instanceof Error ? e.message : "Wall unavailable"); }
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-  async function finish(task: WallTask) {
-    try {
-      await completeTask(task.id);
-      flash("WALL UPDATED", setMessage);
-      await load();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not complete task");
-    }
-  }
+  const loadGoals = useCallback(async () => {
+    try { setGoals(await listGoals(goalFilter === "all" ? undefined : goalFilter)); }
+    catch (e) { setToast(e instanceof Error ? e.message : "Goals unavailable"); }
+  }, [goalFilter]);
+  useEffect(() => { if (view === "goals" || view === "opps") void loadGoals(); }, [view, loadGoals]);
 
-  async function focusTask(task: WallTask) {
-    try {
-      const minutes = Math.min(task.minutes, 45);
-      const started = await startFocus(task.id, minutes);
-      setView("focus");
-      setFocus({ task, seconds: minutes * 60, sessionId: started.id });
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not start focus");
-    }
-  }
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(""), 2600);
+    return () => window.clearTimeout(t);
+  }, [toast]);
 
-  async function endEarly() {
+  useEffect(() => {
     if (!focus) return;
-    const sessionId = focus.sessionId;
-    setFocus(null);
-    setView("wall");
-    try {
-      await finishFocus(sessionId, false);
-      flash("SESSION LOGGED", setMessage);
-    } catch {
-      setMessage("Session could not be logged");
-    }
-    void load();
-  }
-
-  function leaveFocus() {
-    if (focus) {
-      const sessionId = focus.sessionId;
-      void finishFocus(sessionId, false).catch(() => undefined);
-    }
-    setFocus(null);
-    setView("wall");
-  }
-
-  async function activate(goal: GoalItem) {
-    try {
-      await activateGoal(goal.id);
-      flash("GOAL ACTIVE", setMessage);
-      setGoals(await getGoals());
-      void load();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not activate goal");
-    }
-  }
-
-  async function submitGoal(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!form.title.trim()) return;
-
-    try {
-      await createGoal({
-        title: form.title.trim(),
-        lane: form.lane,
-        attention_cost: form.attention_cost,
-        importance: form.importance,
-        due_date: form.due_date || null,
+    const iv = window.setInterval(() => {
+      setFocus((f) => {
+        if (!f || f.secondsLeft <= 1) {
+          const sid = f?.sessionId ?? null;
+          window.setTimeout(() => {
+            void (async () => {
+              if (sid) { try { await finishFocus(sid, { completed: true }); } catch { /* retry next pass */ } }
+              setToast("Session complete — logged.");
+              setFocus(null);
+              void refresh();
+            })();
+          }, 0);
+          return f ? { ...f, secondsLeft: 0 } : f;
+        }
+        return { ...f, secondsLeft: f.secondsLeft - 1 };
       });
-      setForm({
-        title: "",
-        lane: form.lane,
-        attention_cost: 2,
-        importance: 3,
-        due_date: "",
-      });
-      setGoals(await getGoals());
-      flash("PINNED TO GOALS", setMessage);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not create goal");
+    }, 1000);
+    return () => window.clearInterval(iv);
+  }, [focus?.sessionId, refresh]);
+
+  const engage = useCallback(async (task: Task) => {
+    const minutes = Math.max(15, (task.attention_cost ?? 2) * 15);
+    try {
+      const res = await startFocus(task.id, minutes);
+      setFocus({ task, secondsLeft: minutes * 60, sessionId: res.id });
+      setView("focus");
+    } catch (e) { setToast(e instanceof Error ? e.message : "Could not start"); }
+  }, []);
+
+  const abandon = useCallback(async () => {
+    if (!focus) return;
+    if (focus.sessionId) { try { await finishFocus(focus.sessionId, { completed: false }); } catch { /* ignore */ } }
+    setFocus(null);
+    setToast("Session logged as abandoned.");
+    void refresh();
+  }, [focus, refresh]);
+
+  const complete = useCallback(async (t: Task) => {
+    try {
+      await completeTask(t.id);
+      setFocus((f) => (f?.task.id === t.id ? null : f));
+      setToast("Block settled.");
+      void refresh();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Failed to settle"); }
+  }, [refresh]);
+
+  const addGoal = useCallback(async () => {
+    if (!gTitle.trim()) return;
+    try {
+      await createGoal({ title: gTitle.trim(), why: gWhy.trim() || undefined, lane: gLane, attention_cost: gCost, importance: gCost, due_date: gDue || undefined });
+      setGTitle(""); setGWhy(""); setGDue("");
+      setToast("Goal carved.");
+      void loadGoals();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Failed to create"); }
+  }, [gTitle, gWhy, gLane, gCost, gDue, loadGoals]);
+
+  const activate = useCallback(async (g: Goal, force = false) => {
+    try { await activateGoal(g.id, force); setToast("Goal active."); void loadGoals(); void refresh(); }
+    catch (e) {
+      const m = e instanceof Error ? e.message : "Failed";
+      if (m.toLowerCase().includes("full")) setToast("Wall is full — settle something first.");
+      else setToast(m);
     }
-  }
+  }, [loadGoals, refresh]);
 
-  if (focus) {
-    const mm = String(Math.floor(focus.seconds / 60)).padStart(2, "0");
-    const ss = String(focus.seconds % 60).padStart(2, "0");
+  const planned = (wall?.planned as Task[] | undefined) ?? [];
+  const smallWins = (wall?.small_wins as Task[] | undefined) ?? [];
+  const parked = (wall?.parked as Task[] | undefined) ?? [];
+  const xp = (wall?.xp_today as number | undefined) ?? 0;
+  const streak = (wall?.streak_days as number | undefined) ?? (wall?.streak as number | undefined) ?? 0;
+  const doneCount = planned.filter((t) => t.status === "done").length;
 
-    return (
-      <main className="focus-screen">
-        <button className="back" onClick={leaveFocus}>
-          Back to wall
-        </button>
+  const trayGroups = useMemo(() => {
+    const groups: Record<string, Goal[]> = {};
+    for (const g of goals) (groups[g.lane] ??= []).push(g);
+    return Object.entries(groups);
+  }, [goals]);
 
-        <div className="focus-note">
-          <span className="label">CURRENT FOCUS</span>
-
-          <h1>{focus.task.what}</h1>
-
-          <p>{focus.task.how}</p>
-
-          <strong>
-            {mm}:{ss}
-          </strong>
-
-          <small>Output: {focus.task.output}</small>
-
-          <button className="focus-end" onClick={endEarly}>
-            END EARLY — LOG IT
-          </button>
-        </div>
-      </main>
-    );
-  }
+  const sections: Array<[string, Task[]]> = [
+    ["Today's three", planned],
+    ["Small wins", smallWins],
+    ["Parked", parked],
+  ];
 
   return (
-    <main className="app-shell">
-      <header className="wall-header">
-        <div>
-          <p className="eyebrow">PERSONAL OPERATING WALL</p>
+    <>
+      <div ref={wipeRef} className="theme-wipe" />
 
-          <h1>
-            FOCUS<span>//</span>WALL
-          </h1>
-
-          <p>
-            {wall?.date ?? "Loading"} ·{" "}
-            {wall ? minutesToClock(wall.remaining_minutes) : "..."} remaining
-          </p>
+      <header className="app-header">
+        <h1 className="wordmark">FOCUS//WALL</h1>
+        <div className="metrics">
+          <span>XP {xp}</span>
+          <span>STREAK {streak}D</span>
+          <span>{String(doneCount).padStart(2, "0")} / {String(planned.length).padStart(2, "0")}</span>
+          <button className="theme-btn" onClick={() => switchTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}>◐</button>
         </div>
-
-        <button
-          className="theme-toggle"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        >
-          {theme === "dark" ? "LIGHT" : "DARK"}
-        </button>
       </header>
-
-      <section className="status-strip">
-        <div>
-          <span>ACTIVE LOAD</span>
-          <b>
-            {wall?.active_load ?? 0}/{wall?.capacity ?? 12}
-          </b>
-        </div>
-
-        <div>
-          <span>LEVEL</span>
-          <b>{wall?.level ?? 1}</b>
-        </div>
-
-        <div>
-          <span>STREAK</span>
-          <b>{wall?.streak ?? 0} days</b>
-        </div>
-
-        <div className="xp">
-          <span>XP</span>
-          <b>{wall?.xp ?? 0}</b>
-
-          <i>
-            <em style={{ width: `${progress}%` }} />
-          </i>
-        </div>
-      </section>
-
-      {message && <div className="toast">{message}</div>}
+      {error && <div className="error-note">{error}</div>}
 
       {view === "wall" && (
-        <>
-          <section className="wall-section">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">TODAY</p>
-                <h2>Three things. Then stop.</h2>
+        <main className="wall-viewport">
+          {sections.map(([label, items]) => (
+            <section key={label}>
+              <div className="section-label">{label}</div>
+              <div className={`wall-grid${focus ? " locked" : ""}`}>
+                {items.map((t, i) => (
+                  <article
+                    key={t.id}
+                    className={`task-card${focus?.task.id === t.id ? " card-active" : ""}${t.status === "done" ? " settled" : ""}`}
+                  >
+                    <div className="pin" />
+                    <div className="card-tilt" style={seedTilt(t.id)}>
+                      <div className="card-top">
+                        <span className="lane-tag">{t.lane}</span>
+                        <span className="fraction">{String(i + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}</span>
+                      </div>
+                      <h3 className="card-title">{t.title}</h3>
+                      {(t.how || t.why) && <p className="how-line">{t.how || t.why}</p>}
+                      <div className="base-plate">
+                        <span className={`plate-timer${focus?.task.id === t.id ? " live" : ""}`}>
+                          {focus && focus.task.id === t.id ? fmt(focus.secondsLeft) : `${String((t.attention_cost ?? 2) * 15).padStart(2, "0")}:00`}
+                        </span>
+                        {t.status !== "done" && focus?.task.id !== t.id && <HoldButton locked={false} onEngaged={() => void engage(t)} />}
+                        <button className="ghost-btn" onClick={() => void complete(t)}>SETTLE</button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+                {items.length === 0 && <p className="empty-note">Nothing pinned here.</p>}
               </div>
-
-              <span className="budget">
-                {wall?.remaining_minutes ?? 0} min left
-              </span>
-            </div>
-
-            <div className="task-grid">
-              {wall?.core.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onComplete={() => finish(task)}
-                  onFocus={() => focusTask(task)}
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="wall-section secondary">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">SMALL WINS</p>
-                <h2>Keep the wall moving.</h2>
-              </div>
-            </div>
-
-            <div className="small-grid">
-              {wall?.small.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onComplete={() => finish(task)}
-                  onFocus={() => focusTask(task)}
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="wall-section next">
-            <p className="eyebrow">NEXT</p>
-
-            <div className="next-list">
-              {wall?.next.map((task) => (
-                <div className="next-item" key={task.id}>
-                  <span>{task.lane}</span>
-                  <strong>{task.what}</strong>
-                  <small>{task.minutes} min</small>
-                </div>
-              ))}
-            </div>
-          </section>
-        </>
+            </section>
+          ))}
+        </main>
       )}
 
       {view === "focus" && (
-        <section className="wall-section">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">FOCUS</p>
-              <h2>Pick one thing. Start the clock.</h2>
-            </div>
-          </div>
-
-          <div className="next-list">
-            {[...(wall?.core ?? []), ...(wall?.small ?? [])].map((task) => (
-              <div className="next-item focus-row" key={task.id}>
-                <span>{task.lane}</span>
-
-                <strong>{task.what}</strong>
-
-                <button className="focus-start" onClick={() => focusTask(task)}>
-                  START {Math.min(task.minutes, 45)}m
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
+        <main className="focus-screen">
+          {focus ? (
+            <>
+              <h2 className="focus-title">{focus.task.title}</h2>
+              <div className="focus-count">{fmt(focus.secondsLeft)}</div>
+              <button className="ghost-btn" onClick={() => void abandon()}>END EARLY</button>
+            </>
+          ) : (
+            <p className="empty-note">No session running. Hold to engage from the wall.</p>
+          )}
+        </main>
       )}
 
       {view === "goals" && (
-        <section className="wall-section">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">GOALS</p>
-              <h2>What the wall is carrying.</h2>
-            </div>
-
-            <span className="budget">
-              {goals
-                .filter((goal) => goal.status === "active")
-                .reduce((sum, goal) => sum + goal.attention_cost, 0)}{" "}
-              load active
-            </span>
-          </div>
-
-          <form className="goal-form" onSubmit={submitGoal}>
-            <input
-              value={form.title}
-              onChange={(event) => setForm({ ...form, title: event.target.value })}
-              placeholder="New goal — pin it to the wall"
-            />
-
-            <select
-              value={form.lane}
-              onChange={(event) => setForm({ ...form, lane: event.target.value })}
-            >
-              {LANES.map((lane) => (
-                <option key={lane} value={lane}>
-                  {lane}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={form.attention_cost}
-              onChange={(event) =>
-                setForm({ ...form, attention_cost: Number(event.target.value) })
-              }
-            >
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  cost {n}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={form.importance}
-              onChange={(event) =>
-                setForm({ ...form, importance: Number(event.target.value) })
-              }
-            >
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  prio {n}
-                </option>
-              ))}
-            </select>
-
-            <input
-              type="date"
-              value={form.due_date}
-              onChange={(event) => setForm({ ...form, due_date: event.target.value })}
-            />
-
-            <button type="submit">PIN</button>
-          </form>
-
-          <div className="goal-list">
-            {goalsLoaded && goals.length === 0 && (
-              <p className="muted-note">No goals yet. Pin the first one above.</p>
-            )}
-
-            {goals.map((goal) => (
-              <div className="goal-row" key={goal.id}>
-                <span className={`lane lane-${goal.lane}`}>{goal.lane}</span>
-                <strong>{goal.title}</strong>
-                <span className="goal-meta">
-                  cost {goal.attention_cost} · {goal.open_tasks} open
-                  {goal.due_date ? ` · due ${goal.due_date}` : ""}
-                </span>
-                <span className={`status-chip chip-${goal.status}`}>{goal.status}</span>
-                {goal.status === "inbox" && (
-                  <button className="goal-activate" onClick={() => activate(goal)}>
-                    ACTIVATE
-                  </button>
-                )}
-              </div>
+        <main className="panel">
+          <div className="chip-row">
+            {["active", "parked", "done", "all"].map((f) => (
+              <button key={f} className={`chip${goalFilter === f ? " active" : ""}`} onClick={() => setGoalFilter(f)}>{f}</button>
             ))}
           </div>
-        </section>
+          {goals.map((g) => (
+            <div key={g.id} className="goal-row">
+              <h4>{g.title}</h4>
+              {g.why && <p>{g.why}</p>}
+              <div className="goal-meta">{g.lane} · cost {g.attention_cost} · {g.open_tasks} open{g.due_date ? ` · due ${g.due_date}` : ""}</div>
+              {g.status !== "active" && <button className="ghost-btn" onClick={() => void activate(g)}>ACTIVATE</button>}
+            </div>
+          ))}
+          {goals.length === 0 && <p className="empty-note">No goals here yet.</p>}
+          <div className="section-label">New goal</div>
+          <input className="field" placeholder="Title" value={gTitle} onChange={(e) => setGTitle(e.target.value)} />
+          <input className="field" placeholder="Why it matters" value={gWhy} onChange={(e) => setGWhy(e.target.value)} />
+          <input className="field" type="date" value={gDue} onChange={(e) => setGDue(e.target.value)} />
+          <div className="chip-row">
+            {[1, 2, 3, 4, 5].map((c) => (
+              <button key={c} className={`chip${gCost === c ? " active" : ""}`} onClick={() => setGCost(c)}>COST {c}</button>
+            ))}
+          </div>
+          <select className="field" value={gLane} onChange={(e) => setGLane(e.target.value)}>
+            {["technical", "creative", "university", "competitions", "opportunities", "writing", "exercise", "personal"].map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
+          <button className="ghost-btn" onClick={() => void addGoal()}>CARVE IT</button>
+        </main>
       )}
 
       {view === "opps" && (
-        <Placeholder
-          title="OPPORTUNITIES"
-          note="Opportunity inbox and lifecycle land here — own domain, own pipeline, sorted by deadline."
-        />
+        <main className="panel">
+          <div className="section-label">Horizon</div>
+          {trayGroups.length === 0 && <p className="empty-note">The tray fills as goals land. Create one below.</p>}
+          {trayGroups.map(([lane, gs]) => (
+            <section key={lane}>
+              <div className="section-label">{lane}</div>
+              {gs.map((g) => (
+                <div key={g.id} className="goal-row">
+                  <h4>{g.title}</h4>
+                  <div className="goal-meta">{g.open_tasks} open{g.due_date ? ` · due ${g.due_date}` : ""}</div>
+                </div>
+              ))}
+            </section>
+          ))}
+        </main>
       )}
 
       {view === "more" && (
-        <Placeholder
-          title="MORE"
-          note="Parking lot, weekly reflection and settings will live here."
-        />
+        <main className="panel">
+          <div className="section-label">Utility</div>
+          <button className="ghost-btn" onClick={() => switchTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}>SWITCH THEME</button>
+          <p className="empty-note">Queued: opportunities pipeline, projects, agenda.</p>
+        </main>
       )}
 
-      <nav className="bottom-nav">
-        {(
-          [
-            ["wall", "WALL"],
-            ["focus", "FOCUS"],
-            ["goals", "GOALS"],
-            ["opps", "OPPS"],
-            ["more", "MORE"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            className={view === key ? "active" : ""}
-            onClick={() => setView(key)}
-          >
-            {label}
-          </button>
+      {view === "wall" && (
+        <div className={`tray${focus ? " collapsed" : ""}`}>
+          <span className="tray-title">Opportunities</span>
+          {trayGroups.map(([lane, gs]) => (
+            <span key={lane} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span className="tray-rule" />
+              <span className="tray-label">{lane}</span>
+              {gs.slice(0, 4).map((g) => (
+                <button key={g.id} className="tray-pill" onClick={() => setView("goals")}>
+                  <span className="tray-dot" />{g.title}
+                </button>
+              ))}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <nav className="navbar">
+        {(["wall", "focus", "goals", "opps", "more"] as View[]).map((v) => (
+          <NavButton key={v} active={view === v} onGo={() => setView(v)}>{GLYPHS[v]}</NavButton>
         ))}
       </nav>
-    </main>
+
+      {toast && <div className="toast">{toast}</div>}
+    </>
   );
 }
