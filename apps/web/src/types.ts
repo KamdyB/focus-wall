@@ -55,3 +55,18 @@ export type Opportunity = {
   applied_at: string | null;
   next_states: string[];
 };
+
+export type DiscoveredItem = {
+  id: string;
+  source: string;
+  kind: string;
+  title: string;
+  organisation: string | null;
+  url: string | null;
+  eligibility: string | null;
+  deadline: string | null;
+  first_seen: string;
+  fit_score: number;
+};
+
+export type WatchCompany = { id: string; name: string; board: string; slug: string };

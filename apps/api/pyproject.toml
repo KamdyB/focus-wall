@@ -13,3 +13,4 @@ dependencies = [
 
 [tool.vercel]
 entrypoint = "app.main:app"
+httpx==0.28.1

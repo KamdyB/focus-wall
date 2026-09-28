@@ -1,4 +1,4 @@
-import type { FocusSession, Goal, Opportunity, Task, WallToday } from "../types";
+import type { DiscoveredItem, FocusSession, Goal, Opportunity, Task, WallToday, WatchCompany } from "../types";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const TOKEN = (import.meta.env.VITE_APP_TOKEN as string | undefined) ?? "";
@@ -84,3 +84,29 @@ export function getOpportunityEvents(
 ): Promise<Array<{ from_status: string | null; to_status: string; note: string | null; created_at: string }>> {
   return request(`/opportunities/${id}/events`);
 }
+
+export function listRadar(): Promise<DiscoveredItem[]> {
+  return request<DiscoveredItem[]>("/radar");
+}
+export function listCompanies(): Promise<WatchCompany[]> {
+  return request<WatchCompany[]>("/radar/companies");
+}
+export function addCompany(payload: { name: string; board: string; slug: string }): Promise<unknown> {
+  return request("/radar/companies", { method: "POST", body: JSON.stringify(payload) });
+}
+export function refreshRadar(): Promise<{ added: number; failed: string[] }> {
+  return request("/radar/refresh", { method: "POST" });
+}
+export function pinItem(id: string): Promise<unknown> {
+  return request(`/radar/${id}/pin`, { method: "POST" });
+}
+export function dismissItem(id: string): Promise<unknown> {
+  return request(`/radar/${id}/dismiss`, { method: "POST" });
+}
+export function createLog(payload: {
+  session_id?: string; task_id?: string; minutes: number;
+  worked_on?: string; needed_help: boolean;
+}): Promise<unknown> {
+  return request("/logs", { method: "POST", body: JSON.stringify(payload) });
+}
+

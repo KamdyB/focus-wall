@@ -115,3 +115,42 @@ class OpportunityEvent(Base):
     to_status: Mapped[str] = mapped_column(String(24))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DiscoveredItem(Base):
+    __tablename__ = "discovered_items"
+    __table_args__ = (UniqueConstraint("source", "external_id", name="uq_source_external"),)
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    source: Mapped[str] = mapped_column(String(32))  # greenhouse | lever
+    external_id: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(24), default="earn")
+    title: Mapped[str] = mapped_column(String(240))
+    organisation: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    eligibility: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
+    first_seen: Mapped[date] = mapped_column(Date, default=local_today)
+    fit_score: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="discovered")  # discovered|pinned|dismissed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WatchCompany(Base):
+    __tablename__ = "watch_companies"
+    __table_args__ = (UniqueConstraint("board", "slug", name="uq_board_slug"),)
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(120))
+    board: Mapped[str] = mapped_column(String(16))  # greenhouse | lever
+    slug: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SessionLog(Base):
+    __tablename__ = "session_logs"
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    session_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True, unique=True, index=True)
+    task_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    minutes: Mapped[int] = mapped_column(Integer)
+    worked_on: Mapped[str | None] = mapped_column(Text, nullable=True)
+    needed_help: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

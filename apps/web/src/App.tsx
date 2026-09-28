@@ -19,7 +19,7 @@ function seedTilt(id: string): CSSProperties {
   const ry = (((h >> 3) % 401) / 100 - 2).toFixed(2);
   const tz = ((h >> 6) % 9).toFixed(1);
   return { "--rx": `${rx}deg`, "--ry": `${ry}deg`, "--tz": `${tz}px` } as CSSProperties;
-
+ }
 
 function fmt(s: number): ReactNode {
   const m = Math.floor(s / 60);
@@ -288,7 +288,6 @@ export default function App() {
                 {items.map((t, i) => (
                   <article
                     key={t.id}
-                    className={`task-card${focus?.task.id === t.id ? " card-active" : ""}${t.status === "done" ? " settled" : ""}`}
                     className={`task-card lane-${t.lane}${focus?.task.id === t.id ? " card-active" : ""}${t.status === "done" ? " settled" : ""}`}
                   >
                     <div className="pin" />

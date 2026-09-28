@@ -187,3 +187,22 @@ body::before {
   .theme-wipe.running, .nav-ripple { animation: none !important; }
   .task-card, .tray, .hold-fill, .tray-pill, .wall-grid { transition: none !important; }
 }
+
+/* ---------- kind hues: color means something ---------- */
+.kind-learn { --kind: #8a9a5b; }
+.kind-compete { --kind: #3f7f7a; }
+.kind-earn { --kind: #c98f56; }
+.kind-other { --kind: #b08968; }
+.kind-chip { color: var(--kind, var(--ink-muted)); border-color: var(--kind, var(--line)); }
+.kind-chip.active { color: var(--kind); border-color: var(--kind); box-shadow: 0 0 8px rgba(0, 0, 0, 0.2); }
+.kind-dot { background: var(--kind, var(--ink-muted)); }
+
+/* engraved = titles ONLY, never body */
+.card-title, .wordmark, .focus-title { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), 0 -1px 0 rgba(255, 255, 255, 0.06); }
+:root[data-theme="light"] .card-title, :root[data-theme="light"] .wordmark { text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+
+/* radar rows */
+.radar-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--slab); border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 16px var(--cast); padding: 12px 14px; margin-bottom: 8px; }
+.radar-row h4 { font-family: Syne, sans-serif; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0; color: var(--ink); }
+.radar-meta { font-size: 11px; color: var(--ink-muted); margin: 2px 0 0; }
+.radar-actions { display: flex; gap: 6px; flex: 0 0 auto; }
