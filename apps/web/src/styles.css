@@ -322,3 +322,12 @@ button, input, select { font-family: inherit; }
   .theme-wipe.running, .nav-ripple, .plate-timer .dim, .focus-count .dim, .nav-btn::after { animation: none; transition: none; }
   * { transition-duration: 0.01ms !important; }
 }
+/* ==== safe-area + small screens (append, end of file) ==== */
+.navbar { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.tray { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+.wall-viewport, .panel, .focus-screen { padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 420px) {
+  .base-plate { flex-wrap: wrap; }
+  .ghost-btn { flex: 1; }
+  .wall-grid { gap: 18px; }
+}

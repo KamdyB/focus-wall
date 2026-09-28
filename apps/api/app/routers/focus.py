@@ -32,13 +32,16 @@ async def active_session(db: AsyncSession = Depends(get_session)):
     s = res.scalar_one_or_none()
     if not s:
         return None
-    elapsed = (datetime.now(timezone.utc) - s.started_at).total_seconds()
+    started = s.started_at
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
+    elapsed = max(0, (datetime.now(timezone.utc) - started.astimezone(timezone.utc)).total_seconds())
     return {
         "id": s.id,
         "task_id": s.task_id,
-        "planned_minutes": s.planned_minutes,
+        "planned_minutes": s.preset_minutes,
         "started_at": s.started_at.isoformat(),
-        "remaining_seconds": max(0, int(s.planned_minutes * 60 - elapsed)),
+        "remaining_seconds": max(0, int(s.preset_minutes * 60 - elapsed)),
     }
 
 @router.post("")

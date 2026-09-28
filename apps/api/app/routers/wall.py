@@ -11,11 +11,6 @@ from app.services.planner import select_today
 
 from datetime import timedelta, timezone
 
-WAT = timezone(timedelta(hours=1))  # Africa/Lagos — no DST
-
-def local_today():
-    return datetime.now(WAT).date()
-
 router = APIRouter(prefix="/wall", tags=["wall"])
 
 

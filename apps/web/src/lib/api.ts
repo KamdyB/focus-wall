@@ -19,18 +19,55 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function getWall(): Promise<WallToday> {
-  return request<WallToday>("/wall/today");
+/* ---- task normalization: backend vocab in, frontend vocab out, ONE place ---- */
+type RawTask = {
+  id: string;
+  goal_id?: string | null;
+  what?: string; title?: string | null;
+  how?: string | null; output?: string | null; why?: string | null;
+  estimated_minutes?: number; attention_cost?: number;
+  size?: string; kind?: string; lane?: string;
+  status?: string; completed_at?: string | null;
+};
+
+function normTask(t: RawTask): Task {
+  return {
+    id: t.id,
+    goal_id: t.goal_id ?? null,
+    title: t.what ?? t.title ?? "Untitled block",
+    why: t.why ?? null,
+    how: t.how ?? t.output ?? null,
+    output: t.output ?? null,
+    lane: t.lane ?? "personal",
+    kind: t.kind ?? "task",
+    status: t.status === "completed" || t.status === "done" ? "done" : (t.status ?? "todo"),
+    attention_cost: t.attention_cost ?? Math.max(1, Math.round((t.estimated_minutes ?? 30) / 15)),
+    planned_date: null,
+    completed_at: t.completed_at ?? null,
+  };
 }
 
-export function completeTask(taskId: string): Promise<Task> {
-  return request<Task>(`/tasks/${taskId}/complete`, { method: "POST" });
+export function getWall(): Promise<WallToday> {
+  return request<Record<string, unknown>>("/wall/today").then((w) => ({
+    planned: (((w.core ?? w.planned) as RawTask[] | undefined) ?? []).map(normTask),
+    small_wins: (((w.small ?? w.small_wins) as RawTask[] | undefined) ?? []).map(normTask),
+    parked: (((w.next ?? w.parked) as RawTask[] | undefined) ?? []).map(normTask),
+    xp_today: (w.xp as number | undefined) ?? (w.xp_today as number | undefined) ?? 0,
+    streak_days: (w.streak_days as number | undefined) ?? (w.streak as number | undefined) ?? 0,
+    active_load: (w.active_load as number | undefined) ?? 0,
+    capacity: (w.capacity as number | undefined) ?? 0,
+  }));
+}
+
+export function completeTask(taskId: string): Promise<unknown> {
+  return request(`/tasks/${taskId}/complete`, { method: "POST" });
 }
 
 export function startFocus(taskId: string, minutes: number): Promise<FocusSession> {
+  // backend field is preset_minutes — planned_minutes was silently ignored
   return request<FocusSession>("/focus-sessions", {
     method: "POST",
-    body: JSON.stringify({ task_id: taskId, planned_minutes: minutes }),
+    body: JSON.stringify({ task_id: taskId, preset_minutes: minutes }),
   });
 }
 
@@ -67,12 +104,8 @@ export function activateGoal(goalId: string, force = false): Promise<unknown> {
 }
 
 export type OpportunityInput = {
-  title: string;
-  kind: string;
-  organisation?: string;
-  url?: string;
-  deadline?: string;
-  notes?: string;
+  title: string; kind: string; organisation?: string;
+  url?: string; deadline?: string; notes?: string;
 };
 
 export function listOpportunities(status?: string): Promise<Opportunity[]> {
