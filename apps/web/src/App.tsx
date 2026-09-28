@@ -111,7 +111,7 @@ export default function App() {
   const wipeBusy = useRef(false);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = localStorage.getItem("fw-theme") === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = localStorage.getItem("fw-theme") === "dark" ? "dark" : "light";
   }, []);
 
   const switchTheme = useCallback((next: "dark" | "light") => {
