@@ -84,11 +84,21 @@ function NavButton({ active, onGo, children }: { active: boolean; onGo: () => vo
 }
 
 const GLYPHS: Record<View, ReactNode> = {
-  wall: <svg viewBox="0 0 24 24"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v4H4zM14 15h6v4h-6z" /></svg>,
-  focus: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="1.4" /></svg>,
-  goals: <svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h9M5 17h5" /></svg>,
-  opps: <svg viewBox="0 0 24 24"><path d="M4 10h16M7 10v7h10v-7M9 6h6" /></svg>,
-  more: <svg viewBox="0 0 24 24"><path d="M6 12h.01M12 12h.01M18 12h.01" /></svg>,
+  wall: (
+    <svg className="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 4.5l8 7M6.5 10.5V19h11v-8.5M10 19v-5h4v5" /></svg>
+  ),
+  focus: (
+    <svg className="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path className="i-hand" d="M12 12V7.5M12 12l3 2" /></svg>
+  ),
+  goals: (
+    <svg className="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4.2" /><circle className="i-dot" cx="12" cy="12" r="1.6" /></svg>
+  ),
+  opps: (
+    <svg className="i-inbox" viewBox="0 0 24 24"><path d="M4 13.5V19h16v-5.5M4 13.5 6.5 5.5h11L20 13.5M4 13.5h5a3 3 0 0 0 6 0h5" /></svg>
+  ),
+  more: (
+    <svg className="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2.1 2.1M15.9 15.9 18 18M18 6l-2.1 2.1M8.1 15.9 6 18" /></svg>
+  ),
 };
 
 export default function App() {
@@ -127,7 +137,7 @@ export default function App() {
     const wipe = wipeRef.current;
     if (!wipe || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { apply(); return; }
     wipeBusy.current = false;
-    wipe.style.setProperty("--wipe-color", next === "dark" ? "#1a1715" : "#ded4c6");
+    wipe.style.setProperty("--wipe-color", next === "dark" ? "#14161d" : "#e6e2da");
     wipe.classList.add("running");
     const fallback = window.setTimeout(apply, 950);
     wipe.addEventListener("animationend", () => { window.clearTimeout(fallback); apply(); }, { once: true });
