@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   activateGoal, advanceOpportunity, completeTask, createGoal, createOpportunity,
-  finishFocus, getWall, listGoals, listOpportunities, startFocus,
+  finishFocus, getActiveSession, getSettings, getWall, listGoals, listOpportunities,
+  saveSetting, startFocus,
 } from "./lib/api";
 import type { Goal, Opportunity, Task } from "./types";
 
@@ -16,10 +17,10 @@ function seedTilt(id: string): CSSProperties {
   let h = 5381;
   for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) >>> 0;
   const rx = ((h % 401) / 100 - 2).toFixed(2);
-  const ry = (((h >> 3) % 401) / 100 - 2).toFixed(2);
-  const tz = ((h >> 6) % 9).toFixed(1);
+  const ry = (((h >>> 3) % 401) / 100 - 2).toFixed(2);
+  const tz = ((h >>> 6) % 9).toFixed(1);
   return { "--rx": `${rx}deg`, "--ry": `${ry}deg`, "--tz": `${tz}px` } as CSSProperties;
- }
+}
 
 function fmt(s: number): ReactNode {
   const m = Math.floor(s / 60);
@@ -109,18 +110,34 @@ export default function App() {
 
   const wipeRef = useRef<HTMLDivElement>(null);
   const wipeBusy = useRef(false);
+  const themeTouched = useRef(false);
+  const didResume = useRef(false);
+  const finishedSessions = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    document.documentElement.dataset.theme = localStorage.getItem("fw-theme") === "dark" ? "dark" : "light";
+    const saved = localStorage.getItem("fw-theme");
+    document.documentElement.dataset.theme = saved === "dark" || saved === "light" ? saved : "light";
+    void (async () => {
+      try {
+        const s = await getSettings();
+        const t = s.theme;
+        if ((t === "dark" || t === "light") && !themeTouched.current) {
+          document.documentElement.dataset.theme = t;
+          localStorage.setItem("fw-theme", t);
+        }
+      } catch { /* offline — local value stands */ }
+    })();
   }, []);
 
   const switchTheme = useCallback((next: "dark" | "light") => {
     if (document.documentElement.dataset.theme === next) return;
+    themeTouched.current = true;
     const apply = () => {
       if (wipeBusy.current) return;
       wipeBusy.current = true;
       document.documentElement.dataset.theme = next;
       localStorage.setItem("fw-theme", next);
+      void saveSetting("theme", next).catch(() => { /* server sync best-effort */ });
       wipeRef.current?.classList.remove("running");
       window.setTimeout(() => { wipeBusy.current = false; }, 60);
     };
@@ -138,6 +155,13 @@ export default function App() {
     catch (e) { setError(e instanceof Error ? e.message : "Wall unavailable"); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+
+  const finishOnce = useCallback(async (sid: string, completed: boolean) => {
+    if (finishedSessions.current.has(sid)) return;
+    finishedSessions.current.add(sid);
+    try { await finishFocus(sid, { completed }); }
+    catch { finishedSessions.current.delete(sid); } // unmark so the next pass can retry
+  }, []);
 
   const loadGoals = useCallback(async () => {
     try { setGoals(await listGoals(goalFilter === "all" ? undefined : goalFilter)); }
@@ -157,6 +181,31 @@ export default function App() {
     return () => window.clearTimeout(t);
   }, [toast]);
 
+  // resume an interrupted session once the wall has loaded
+  useEffect(() => {
+    if (!wall || didResume.current) return;
+    didResume.current = true;
+    void (async () => {
+      try {
+        const s = await getActiveSession();
+        if (!s) return;
+        const planned = (wall.planned as Task[] | undefined) ?? [];
+        const smallWins = (wall.small_wins as Task[] | undefined) ?? [];
+        const parked = (wall.parked as Task[] | undefined) ?? [];
+        const t =
+          planned.find((x) => x.id === s.task_id) ??
+          smallWins.find((x) => x.id === s.task_id) ??
+          parked.find((x) => x.id === s.task_id) ?? {
+            id: s.task_id, goal_id: null, title: "Running session", why: null, how: null,
+            output: null, lane: "personal", kind: "task", status: "todo",
+            attention_cost: 2, planned_date: null, completed_at: null,
+          } as Task;
+        setFocus({ task: t, secondsLeft: s.remaining_seconds, sessionId: s.id });
+        setView("focus");
+      } catch { /* ignore */ }
+    })();
+  }, [wall]);
+
   useEffect(() => {
     if (!focus) return;
     const iv = window.setInterval(() => {
@@ -165,7 +214,7 @@ export default function App() {
           const sid = f?.sessionId ?? null;
           window.setTimeout(() => {
             void (async () => {
-              if (sid) { try { await finishFocus(sid, { completed: true }); } catch { /* retried on next pass */ } }
+              if (sid) await finishOnce(sid, true);
               setToast("Session complete — logged.");
               setFocus(null);
               void refresh();
@@ -177,7 +226,7 @@ export default function App() {
       });
     }, 1000);
     return () => window.clearInterval(iv);
-  }, [focus?.sessionId, refresh]);
+  }, [focus?.sessionId, refresh, finishOnce]);
 
   const engage = useCallback(async (task: Task) => {
     const minutes = Math.max(15, (task.attention_cost ?? 2) * 15);
@@ -190,20 +239,23 @@ export default function App() {
 
   const abandon = useCallback(async () => {
     if (!focus) return;
-    if (focus.sessionId) { try { await finishFocus(focus.sessionId, { completed: false }); } catch { /* ignore */ } }
+    if (focus.sessionId) await finishOnce(focus.sessionId, false);
     setFocus(null);
     setToast("Session logged as abandoned.");
     void refresh();
-  }, [focus, refresh]);
+  }, [focus, finishOnce, refresh]);
 
   const complete = useCallback(async (t: Task) => {
     try {
       await completeTask(t.id);
-      setFocus((f) => (f?.task.id === t.id ? null : f));
+      setFocus((f) => {
+        if (f?.task.id === t.id && f.sessionId) void finishOnce(f.sessionId, false);
+        return f?.task.id === t.id ? null : f;
+      });
       setToast("Block settled.");
       void refresh();
     } catch (e) { setToast(e instanceof Error ? e.message : "Failed to settle"); }
-  }, [refresh]);
+  }, [refresh, finishOnce]);
 
   const addGoal = useCallback(async () => {
     if (!gTitle.trim()) return;

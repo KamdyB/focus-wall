@@ -41,6 +41,15 @@ export function finishFocus(sessionId: string, body: { completed: boolean }): Pr
   });
 }
 
+export type ActiveSession = {
+  id: string; task_id: string; planned_minutes: number;
+  started_at: string; remaining_seconds: number;
+};
+
+export function getActiveSession(): Promise<ActiveSession | null> {
+  return request<ActiveSession | null>("/focus-sessions/active");
+}
+
 export function listGoals(status?: string): Promise<Goal[]> {
   const q = status ? `?status=${encodeURIComponent(status)}` : "";
   return request<Goal[]>(`/goals${q}`);
@@ -110,3 +119,9 @@ export function createLog(payload: {
   return request("/logs", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export function getSettings(): Promise<Record<string, string>> {
+  return request<Record<string, string>>("/settings");
+}
+export function saveSetting(key: string, value: string): Promise<unknown> {
+  return request("/settings", { method: "PUT", body: JSON.stringify({ key, value }) });
+}

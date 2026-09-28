@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from uuid import UUID
+from sqlalchemy import select
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -20,6 +21,25 @@ class FocusCreate(BaseModel):
 class FocusFinish(BaseModel):
     completed: bool = True
 
+@router.get("/active")
+async def active_session(db: AsyncSession = Depends(get_session)):
+    res = await db.execute(
+        select(FocusSession)
+        .where(FocusSession.status == "running")
+        .order_by(FocusSession.started_at.desc())
+        .limit(1)
+    )
+    s = res.scalar_one_or_none()
+    if not s:
+        return None
+    elapsed = (datetime.now(timezone.utc) - s.started_at).total_seconds()
+    return {
+        "id": s.id,
+        "task_id": s.task_id,
+        "planned_minutes": s.planned_minutes,
+        "started_at": s.started_at.isoformat(),
+        "remaining_seconds": max(0, int(s.planned_minutes * 60 - elapsed)),
+    }
 
 @router.post("")
 async def start_focus(payload: FocusCreate, db: AsyncSession = Depends(get_session)):
@@ -53,3 +73,4 @@ async def finish_focus(
     session.ended_at = datetime.now(timezone.utc)
     await db.commit()
     return {"status": session.status, "completed": session.completed}
+

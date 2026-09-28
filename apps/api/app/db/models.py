@@ -1,13 +1,20 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+WAT = timezone(timedelta(hours=1))  # Africa/Lagos — fixed offset, no DST
+
+
+def local_today() -> date:
+    return datetime.now(WAT).date()
 
 
 class Base(DeclarativeBase):
@@ -154,3 +161,10 @@ class SessionLog(Base):
     worked_on: Mapped[str | None] = mapped_column(Text, nullable=True)
     needed_help: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UserSetting(Base):
+    __tablename__ = "user_settings"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(255))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

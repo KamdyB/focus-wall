@@ -11,6 +11,13 @@ from app.db.models import DailyStreak, Goal, Task, XPEvent
 from app.db.session import get_session
 from app.services.xp import task_xp
 
+from datetime import timedelta, timezone
+
+WAT = timezone(timedelta(hours=1))  # Africa/Lagos — no DST
+
+def local_today():
+    return datetime.now(WAT).date()
+
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 

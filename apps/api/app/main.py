@@ -6,11 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.db.init_db import main as init_db
-from app.routers import focus, goals, opportunities, tasks, wall
 from app.routers import focus, goals, logs, opportunities, radar, tasks, wall
-
-app.include_router(radar.router, dependencies=[Depends(auth)])
-app.include_router(logs.router, dependencies=[Depends(auth)])
+from app.routers import settings as settings_router
 
 
 def _optional_router(module_name: str):
@@ -58,7 +55,10 @@ app.include_router(tasks.router, dependencies=[Depends(auth)])
 app.include_router(wall.router, dependencies=[Depends(auth)])
 app.include_router(focus.router, dependencies=[Depends(auth)])
 app.include_router(opportunities.router, dependencies=[Depends(auth)])
-for _name in ("projects", "health", "settings"):
+app.include_router(radar.router, dependencies=[Depends(auth)])
+app.include_router(logs.router, dependencies=[Depends(auth)])
+app.include_router(settings_router.router, dependencies=[Depends(auth)])
+for _name in ("projects", "health"):
     _r = _optional_router(_name)
     if _r is not None:
         app.include_router(_r, dependencies=[Depends(auth)])
