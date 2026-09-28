@@ -84,21 +84,11 @@ function NavButton({ active, onGo, children }: { active: boolean; onGo: () => vo
 }
 
 const GLYPHS: Record<View, ReactNode> = {
-  wall: (
-    <svg className="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 4.5l8 7M6.5 10.5V19h11v-8.5M10 19v-5h4v5" /></svg>
-  ),
-  focus: (
-    <svg className="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path className="i-hand" d="M12 12V7.5M12 12l3 2" /></svg>
-  ),
-  goals: (
-    <svg className="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4.2" /><circle className="i-dot" cx="12" cy="12" r="1.6" /></svg>
-  ),
-  opps: (
-    <svg className="i-inbox" viewBox="0 0 24 24"><path d="M4 13.5V19h16v-5.5M4 13.5 6.5 5.5h11L20 13.5M4 13.5h5a3 3 0 0 0 6 0h5" /></svg>
-  ),
-  more: (
-    <svg className="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2.1 2.1M15.9 15.9 18 18M18 6l-2.1 2.1M8.1 15.9 6 18" /></svg>
-  ),
+  wall: <svg className="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 4.5l8 7M6.5 10.5V19h11v-8.5M10 19v-5h4v5" /></svg>,
+  focus: <svg className="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path className="i-hand" d="M12 12V7.5M12 12l3 2" /></svg>,
+  goals: <svg className="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4.2" /><circle className="i-dot" cx="12" cy="12" r="1.6" /></svg>,
+  opps: <svg className="i-inbox" viewBox="0 0 24 24"><path d="M4 13.5V19h16v-5.5M4 13.5 6.5 5.5h11L20 13.5M4 13.5h5a3 3 0 0 0 6 0h5" /></svg>,
+  more: <svg className="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2.1 2.1M15.9 15.9 18 18M18 6l-2.1 2.1M8.1 15.9 6 18" /></svg>,
 };
 
 export default function App() {
@@ -137,7 +127,7 @@ export default function App() {
     const wipe = wipeRef.current;
     if (!wipe || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { apply(); return; }
     wipeBusy.current = false;
-    wipe.style.setProperty("--wipe-color", next === "dark" ? "#14161d" : "#e6e2da");
+    wipe.style.setProperty("--wipe-color", next === "dark" ? "#14161d" : "#ddd9cf");
     wipe.classList.add("running");
     const fallback = window.setTimeout(apply, 950);
     wipe.addEventListener("animationend", () => { window.clearTimeout(fallback); apply(); }, { once: true });
