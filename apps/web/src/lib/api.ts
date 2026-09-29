@@ -1,12 +1,14 @@
-import type { DiscoveredItem, FocusSession, Goal, Opportunity, Task, WallToday, WatchCompany } from "../types";
+import type { DiscoveredItem, Goal, Opportunity, Task, WallToday, WatchCompany } from "../types";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const TOKEN = (import.meta.env.VITE_APP_TOKEN as string | undefined) ?? "";
+
+export class AuthError extends Error {}
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem("fw-session") ?? (import.meta.env.VITE_APP_TOKEN as string | undefined) ?? "";
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", "X-App-Token": TOKEN, ...(init.headers ?? {}) },
+    headers: { "Content-Type": "application/json", "X-App-Token": token, ...(init.headers ?? {}) },
   });
   if (!res.ok) {
     let detail = res.statusText;
@@ -14,9 +16,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       const body = await res.json();
       detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail ?? body);
     } catch { /* non-JSON error body */ }
+    if (res.status === 401) throw new AuthError(detail);
     throw new Error(detail);
   }
   return res.json() as Promise<T>;
+}
+
+/* ---- login gate ---- */
+export async function login(password: string): Promise<void> {
+  const data = await request<{ token: string }>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ password }),
+  });
+  localStorage.setItem("fw-session", data.token);
 }
 
 /* ---- task normalization: backend vocab in, frontend vocab out, ONE place ---- */
@@ -63,19 +75,24 @@ export function completeTask(taskId: string): Promise<unknown> {
   return request(`/tasks/${taskId}/complete`, { method: "POST" });
 }
 
-export function startFocus(taskId: string, minutes: number): Promise<FocusSession> {
-  // backend field is preset_minutes — planned_minutes was silently ignored
-  return request<FocusSession>("/focus-sessions", {
+export function quickCapture(text: string): Promise<{ id: string; title: string; minutes: number; due_today: boolean }> {
+  return request("/quick-capture", { method: "POST", body: JSON.stringify({ text }) });
+}
+
+export function runDecay(): Promise<{ decayed: number }> {
+  return request("/maintenance/decay", { method: "POST" });
+}
+
+export function startFocus(taskId: string, minutes: number): Promise<{ id: string }> {
+  // backend field is preset_minutes
+  return request<{ id: string }>("/focus-sessions", {
     method: "POST",
     body: JSON.stringify({ task_id: taskId, preset_minutes: minutes }),
   });
 }
 
 export function finishFocus(sessionId: string, body: { completed: boolean }): Promise<unknown> {
-  return request(`/focus-sessions/${sessionId}/finish`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  return request(`/focus-sessions/${sessionId}/finish`, { method: "POST", body: JSON.stringify(body) });
 }
 
 export type ActiveSession = {

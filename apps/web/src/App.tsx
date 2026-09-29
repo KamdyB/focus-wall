@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
-  activateGoal, advanceOpportunity, completeTask, createGoal, createOpportunity,
+  AuthError, activateGoal, advanceOpportunity, completeTask, createGoal, createOpportunity,
   finishFocus, getActiveSession, getSettings, getWall, listGoals, listOpportunities,
-  saveSetting, startFocus,
+  login, quickCapture, runDecay, saveSetting, startFocus,
 } from "./lib/api";
 import type { Goal, Opportunity, Task } from "./types";
+import { playChime, unlockChime } from "./lib/chime";
 
 type View = "wall" | "focus" | "goals" | "opps" | "more";
 type FocusState = { task: Task; secondsLeft: number; sessionId: string | null };
@@ -38,6 +39,7 @@ function HoldButton({ locked, onEngaged }: { locked: boolean; onEngaged: () => v
   const fired = useRef(false);
 
   const start = useCallback(() => {
+    unlockChime(); // user gesture — opens the audio door for the end-of-session chime
     if (locked || timer.current !== null) return;
     fired.current = false;
     setFilling(true);
@@ -108,11 +110,16 @@ export default function App() {
   const [oTitle, setOTitle] = useState(""); const [oOrg, setOOrg] = useState("");
   const [oKind, setOKind] = useState("learn"); const [oDeadline, setODeadline] = useState("");
 
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [loginPw, setLoginPw] = useState(""); const [loginErr, setLoginErr] = useState("");
+  const [qText, setQText] = useState("");
+
   const wipeRef = useRef<HTMLDivElement>(null);
   const wipeBusy = useRef(false);
   const themeTouched = useRef(false);
   const didResume = useRef(false);
   const finishedSessions = useRef<Set<string>>(new Set());
+  const captureRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("fw-theme");
@@ -125,7 +132,7 @@ export default function App() {
           document.documentElement.dataset.theme = t;
           localStorage.setItem("fw-theme", t);
         }
-      } catch { /* offline — local value stands */ }
+      } catch { /* offline or locked — local value stands */ }
     })();
   }, []);
 
@@ -152,15 +159,26 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     try { setWall((await getWall()) as unknown as Record<string, unknown>); setError(""); }
-    catch (e) { setError(e instanceof Error ? e.message : "Wall unavailable"); }
+    catch (e) {
+      if (e instanceof AuthError) { setNeedsLogin(true); setError(""); }
+      else setError(e instanceof Error ? e.message : "Wall unavailable");
+    }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+
+  // morning clean — decay stale tasks whenever the app opens
+  useEffect(() => {
+    void (async () => {
+      try { const d = await runDecay(); if (d.decayed > 0) void refresh(); }
+      catch { /* silent — best-effort */ }
+    })();
+  }, [refresh]);
 
   const finishOnce = useCallback(async (sid: string, completed: boolean) => {
     if (finishedSessions.current.has(sid)) return;
     finishedSessions.current.add(sid);
     try { await finishFocus(sid, { completed }); }
-    catch { finishedSessions.current.delete(sid); } // unmark so the next pass can retry
+    catch { finishedSessions.current.delete(sid); }
   }, []);
 
   const loadGoals = useCallback(async () => {
@@ -214,6 +232,7 @@ export default function App() {
           const sid = f?.sessionId ?? null;
           window.setTimeout(() => {
             void (async () => {
+              playChime();
               if (sid) await finishOnce(sid, true);
               setToast("Session complete — logged.");
               setFocus(null);
@@ -227,6 +246,37 @@ export default function App() {
     }, 1000);
     return () => window.clearInterval(iv);
   }, [focus?.sessionId, refresh, finishOnce]);
+
+  // Cmd/Ctrl+K -> capture bar
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setView("wall");
+        requestAnimationFrame(() => captureRef.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const quickAdd = useCallback(async () => {
+    if (!qText.trim()) return;
+    try {
+      const r = await quickCapture(qText);
+      setQText("");
+      setToast(`Captured: ${r.title}${r.due_today ? " — today" : ""}`);
+      void refresh();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Capture failed"); }
+  }, [qText, refresh]);
+
+  const doLogin = useCallback(async () => {
+    try {
+      await login(loginPw);
+      setNeedsLogin(false); setLoginPw(""); setLoginErr("");
+      void refresh();
+    } catch (e) { setLoginErr(e instanceof Error ? e.message : "Sign-in failed"); }
+  }, [loginPw, refresh]);
 
   const engage = useCallback(async (task: Task) => {
     const minutes = Math.max(15, (task.attention_cost ?? 2) * 15);
@@ -310,6 +360,19 @@ export default function App() {
     return groups;
   }, [opps]);
 
+  if (needsLogin) {
+    return (
+      <main className="panel" style={{ paddingTop: "16vh" }}>
+        <div className="section-label">Sign in</div>
+        <input className="field" type="password" placeholder="Password" value={loginPw} autoFocus
+          onChange={(e) => setLoginPw(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") void doLogin(); }} />
+        {loginErr && <p className="empty-note">{loginErr}</p>}
+        <button className="ghost-btn" onClick={() => void doLogin()}>UNLOCK</button>
+      </main>
+    );
+  }
+
   const sections: Array<[string, Task[]]> = [
     ["Today's three", planned],
     ["Small wins", smallWins],
@@ -333,6 +396,13 @@ export default function App() {
 
       {view === "wall" && (
         <main className="wall-viewport">
+          <div style={{ display: "flex", gap: 8, margin: "4px 0 10px" }}>
+            <input ref={captureRef} className="field" style={{ margin: 0 }}
+              placeholder="Capture — add !t for today, !25 for minutes"
+              value={qText} onChange={(e) => setQText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void quickAdd(); }} />
+            <button className="ghost-btn" style={{ height: "auto" }} onClick={() => void quickAdd()}>ADD</button>
+          </div>
           {sections.map(([label, items]) => (
             <section key={label}>
               <div className="section-label">{label}</div>
@@ -453,7 +523,7 @@ export default function App() {
         <main className="panel">
           <div className="section-label">Utility</div>
           <button className="ghost-btn" onClick={() => switchTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}>SWITCH THEME</button>
-          <p className="empty-note">Queued: projects tracker, agenda week strip.</p>
+          <p className="empty-note">Queued: agenda week strip, reminders.</p>
         </main>
       )}
 
