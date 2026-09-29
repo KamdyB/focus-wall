@@ -11,6 +11,7 @@ export type Task = {
   attention_cost: number;
   planned_date: string | null;
   completed_at: string | null;
+  recur: string | null;
 };
 
 export type Goal = {
@@ -69,4 +70,25 @@ export type DiscoveredItem = {
   fit_score: number;
 };
 
-export type WatchCompany = { id: string; name: string; board: string; slug: string };
+export type WatchFeed = { id: string; source: string; param: string; label: string };
+
+export type RadarRefresh = {
+  added: number;
+  failed: string[];
+  skipped?: boolean;
+  next_refresh_in_minutes?: number;
+};
+
+export type DailyBriefing = {
+  date: string;
+  done_today: number;
+  open_tasks: number;
+  xp_today: number;
+  focus_minutes: number;
+  streak: number;
+  next_up: Array<{ id: string; title: string }>;
+  next_deadline: { title: string; deadline: string } | null;
+  reflection_done: boolean;
+};
+
+export type Reflection = { date: string; body: string; mood: string | null } | null;

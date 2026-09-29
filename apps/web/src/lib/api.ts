@@ -1,4 +1,7 @@
-import type { DiscoveredItem, Goal, Opportunity, Task, WallToday, WatchCompany } from "../types";
+import type {
+  DailyBriefing, DiscoveredItem, Goal, Opportunity, RadarRefresh, Reflection,
+  Task, WallToday, WatchFeed,
+} from "../types";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -30,6 +33,7 @@ export async function login(password: string): Promise<void> {
   localStorage.setItem("fw-session", data.token);
 }
 
+/* ---- task normalization: backend vocab in, frontend vocab out, ONE place ---- */
 type RawTask = {
   id: string;
   goal_id?: string | null;
@@ -37,7 +41,7 @@ type RawTask = {
   how?: string | null; output?: string | null; why?: string | null;
   estimated_minutes?: number; attention_cost?: number;
   size?: string; kind?: string; lane?: string;
-  status?: string; completed_at?: string | null;
+  status?: string; completed_at?: string | null; recur?: string | null;
 };
 
 function normTask(t: RawTask): Task {
@@ -54,6 +58,7 @@ function normTask(t: RawTask): Task {
     attention_cost: t.attention_cost ?? Math.max(1, Math.round((t.estimated_minutes ?? 30) / 15)),
     planned_date: null,
     completed_at: t.completed_at ?? null,
+    recur: t.recur ?? null,
   };
 }
 
@@ -69,6 +74,10 @@ export function getWall(): Promise<WallToday> {
   }));
 }
 
+export async function getTask(taskId: string): Promise<Task> {
+  return normTask(await request<RawTask>(`/tasks/${taskId}`));
+}
+
 export function completeTask(taskId: string): Promise<unknown> {
   return request(`/tasks/${taskId}/complete`, { method: "POST" });
 }
@@ -76,7 +85,7 @@ export function completeTask(taskId: string): Promise<unknown> {
 export type TaskPatch = Partial<{
   what: string; how: string; output: string; estimated_minutes: number;
   size: string; lane: string; importance: number; due_at: string | null; goal_id: string | null;
-}>;
+}> & { recur?: "none" | "daily" | "weekly" | "monthly" };
 
 export function updateTask(taskId: string, patch: TaskPatch): Promise<unknown> {
   return request(`/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify(patch) });
@@ -154,16 +163,20 @@ export function getOpportunityEvents(
   return request(`/opportunities/${id}/events`);
 }
 
+/* ---- radar feeds (replaces the old companies endpoints) ---- */
 export function listRadar(): Promise<DiscoveredItem[]> {
   return request<DiscoveredItem[]>("/radar");
 }
-export function listCompanies(): Promise<WatchCompany[]> {
-  return request<WatchCompany[]>("/radar/companies");
+export function listFeeds(): Promise<WatchFeed[]> {
+  return request<WatchFeed[]>("/radar/feeds");
 }
-export function addCompany(payload: { name: string; board: string; slug: string }): Promise<unknown> {
-  return request("/radar/companies", { method: "POST", body: JSON.stringify(payload) });
+export function addFeed(payload: { source: string; param?: string; label: string }): Promise<{ status: string }> {
+  return request("/radar/feeds", { method: "POST", body: JSON.stringify(payload) });
 }
-export function refreshRadar(): Promise<{ added: number; failed: string[] }> {
+export function removeFeed(feedId: string): Promise<{ deleted: boolean }> {
+  return request(`/radar/feeds/${feedId}`, { method: "DELETE" });
+}
+export function refreshRadar(): Promise<RadarRefresh> {
   return request("/radar/refresh", { method: "POST" });
 }
 export function pinItem(id: string): Promise<unknown> {
@@ -172,6 +185,7 @@ export function pinItem(id: string): Promise<unknown> {
 export function dismissItem(id: string): Promise<unknown> {
   return request(`/radar/${id}/dismiss`, { method: "POST" });
 }
+
 export function createLog(payload: {
   session_id?: string; task_id?: string; minutes: number;
   worked_on?: string; needed_help: boolean;
@@ -182,6 +196,22 @@ export function createLog(payload: {
 export function getSettings(): Promise<Record<string, string>> {
   return request<Record<string, string>>("/settings");
 }
+
 export function saveSetting(key: string, value: string): Promise<unknown> {
   return request("/settings", { method: "PUT", body: JSON.stringify({ key, value }) });
+}
+
+/* ---- daily briefing + reflection ---- */
+export function getBriefing(): Promise<DailyBriefing> {
+  return request<DailyBriefing>("/daily/briefing");
+}
+export function getReflection(day?: string): Promise<Reflection> {
+  const q = day ? `?day=${encodeURIComponent(day)}` : "";
+  return request<Reflection>(`/daily/reflection${q}`);
+}
+export function saveReflection(body: string, mood: string | null): Promise<Reflection> {
+  return request("/daily/reflection", { method: "PUT", body: JSON.stringify({ body, mood }) });
+}
+export function listReflections(limit = 7): Promise<Array<{ date: string; body: string; mood: string | null }>> {
+  return request(`/daily/reflections?limit=${limit}`);
 }

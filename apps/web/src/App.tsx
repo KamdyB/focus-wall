@@ -1,18 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
-  AuthError, activateGoal, advanceOpportunity, completeTask, createGoal, createOpportunity,
-  deleteTask, finishFocus, getActiveSession, getSettings, getWall, listGoals, listOpportunities,
-  login, quickCapture, runDecay, saveSetting, startFocus, updateTask,
+  AuthError, activateGoal, addFeed, advanceOpportunity, completeTask, createGoal, createOpportunity,
+  deleteTask, dismissItem, finishFocus, getActiveSession, getBriefing, getReflection, getSettings,
+  getTask, getWall, listFeeds, listGoals, listOpportunities, listRadar, listReflections, login,
+  pinItem, quickCapture, refreshRadar, removeFeed, runDecay, saveReflection, saveSetting,
+  startFocus, updateTask,
 } from "./lib/api";
-import type { Goal, Opportunity, Task } from "./types";
+
+import type {
+  DailyBriefing, DiscoveredItem, Goal, Opportunity, Reflection, Task, WatchFeed,
+} from "./types";
 import { playChime, unlockChime } from "./lib/chime";
 
 type View = "wall" | "focus" | "goals" | "opps" | "more";
 type FocusState = { task: Task; secondsLeft: number; sessionId: string | null };
+type EditDraft = { what: string; minutes: number; recur: string };
 
 const LIVE_OPP = new Set(["inbox", "applied", "interview", "offer"]);
 const KIND_LABEL: Record<string, string> = { learn: "LEARN", compete: "COMPETE", earn: "EARN", other: "OTHER" };
+const REPEAT_OPTS: Array<[string, string]> = [["none", "One-off"], ["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"]];
+const FEED_SOURCES: Array<[string, string]> = [
+  ["greenhouse", "Greenhouse board slug"],
+  ["lever", "Lever board slug"],
+  ["remotive", "Remotive — search keyword (optional)"],
+  ["jobicy", "Jobicy — search keyword (optional)"],
+  ["arbeitnow", "Arbeitnow — filter keyword (optional)"],
+];
+const MINUTES_OPTS = [15, 30, 45, 60, 90, 120, 180, 240];
 
 function seedTilt(id: string): CSSProperties {
   let h = 5381;
@@ -55,6 +70,7 @@ function HoldButton({ locked, onEngaged }: { locked: boolean; onEngaged: () => v
     <button
       className={`hold-btn${filling ? " filling" : ""}${locked ? " locked" : ""}`}
       disabled={locked}
+      title={locked ? "Session running" : "Press and hold 1.5s to start the focus timer"}
       onPointerDown={start} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
       onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) start(); }}
       onKeyUp={stop}
@@ -65,10 +81,21 @@ function HoldButton({ locked, onEngaged }: { locked: boolean; onEngaged: () => v
   );
 }
 
-function NavButton({ active, onGo, children }: { active: boolean; onGo: () => void; children: ReactNode }) {
+const NAV_HINTS: Record<View, string> = {
+  wall: "Wall — today's blocks, planner's pick",
+  focus: "Focus — the running session",
+  goals: "Goals — the why behind your blocks",
+  opps: "Opportunities — radar, feeds and pipeline",
+  more: "More — theme, daily reflection, utility",
+};
+
+function NavButton({ active, hint, onGo, children }: { active: boolean; hint: string; onGo: () => void; children: ReactNode }) {
   return (
     <button
       className={`nav-btn${active ? " active" : ""}`}
+      aria-label={hint}
+      title={hint}
+      aria-current={active ? "page" : undefined}
       onClick={(e) => {
         const b = e.currentTarget;
         const r = b.getBoundingClientRect();
@@ -107,14 +134,25 @@ export default function App() {
 
   const [opps, setOpps] = useState<Opportunity[]>([]);
   const [oppFilter, setOppFilter] = useState("all");
-  const [oTitle, setOTitle] = useState(""); const [oOrg, setOOrg] = useState("");
+  const [oTitle, setOTitle] = useState(""); const [oOrg, setOOrg] = useState(""); const [oUrl, setOUrl] = useState("");
   const [oKind, setOKind] = useState("learn"); const [oDeadline, setODeadline] = useState("");
 
   const [needsLogin, setNeedsLogin] = useState(false);
   const [loginPw, setLoginPw] = useState(""); const [loginErr, setLoginErr] = useState("");
   const [qText, setQText] = useState(""); const [qBusy, setQBusy] = useState(false);
+
+  const [menuId, setMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+
+  const [briefing, setBriefing] = useState<DailyBriefing | null>(null);
+  const [reflText, setReflText] = useState(""); const [reflMood, setReflMood] = useState<string | null>(null);
+  const [reflList, setReflList] = useState<Array<{ date: string; body: string; mood: string | null }>>([]);
+  const [reflSaved, setReflSaved] = useState(false);
+
+  const [feeds, setFeeds] = useState<WatchFeed[]>([]);
+  const [radar, setRadar] = useState<DiscoveredItem[]>([]);
+  const [fSource, setFSource] = useState("remotive"); const [fParam, setFParam] = useState(""); const [fLabel, setFLabel] = useState("");
 
   const wipeRef = useRef<HTMLDivElement>(null);
   const wipeBusy = useRef(false);
@@ -122,6 +160,8 @@ export default function App() {
   const didResume = useRef(false);
   const finishedSessions = useRef<Set<string>>(new Set());
   const captureRef = useRef<HTMLInputElement>(null);
+  const captureBusy = useRef(false);
+  const radarRefreshedOn = useRef("");
 
   useEffect(() => {
     const saved = localStorage.getItem("fw-theme");
@@ -159,13 +199,18 @@ export default function App() {
     wipe.addEventListener("animationend", () => { window.clearTimeout(fallback); apply(); }, { once: true });
   }, []);
 
+  const loadBriefing = useCallback(async () => {
+    try { setBriefing(await getBriefing()); } catch { /* best-effort */ }
+  }, []);
+
   const refresh = useCallback(async () => {
     try { setWall((await getWall()) as unknown as Record<string, unknown>); setError(""); }
     catch (e) {
       if (e instanceof AuthError) { setNeedsLogin(true); setError(""); }
       else setError(e instanceof Error ? e.message : "Wall unavailable");
     }
-  }, []);
+    void loadBriefing();
+  }, [loadBriefing]);
   useEffect(() => { void refresh(); }, [refresh]);
 
   useEffect(() => {
@@ -174,6 +219,30 @@ export default function App() {
       catch { /* best-effort */ }
     })();
   }, [refresh]);
+
+  // close the kebab menu on any outside click
+  useEffect(() => {
+    if (!menuId) return;
+    const close = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest(".task-menu") && !t.closest(".kebab-btn")) setMenuId(null);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [menuId]);
+
+  // load the edit form from the source of truth (true minutes + saved repeat rule)
+  useEffect(() => {
+    if (!editingId) { setEditDraft(null); return; }
+    let alive = true;
+    void (async () => {
+      try {
+        const t = await getTask(editingId);
+        if (alive) setEditDraft({ what: t.title, minutes: Math.max(15, Math.round((t.attention_cost ?? 2) * 15)), recur: t.recur ?? "none" });
+      } catch { if (alive) { setEditingId(null); setToast("Could not load that block."); } }
+    })();
+    return () => { alive = false; };
+  }, [editingId]);
 
   const finishOnce = useCallback(async (sid: string, completed: boolean) => {
     if (finishedSessions.current.has(sid)) return;
@@ -192,37 +261,52 @@ export default function App() {
     try { setOpps(await listOpportunities(oppFilter)); }
     catch (e) { setToast(e instanceof Error ? e.message : "Opportunities unavailable"); }
   }, [oppFilter]);
-  useEffect(() => { if (view === "wall" || view === "opps") void loadOpps(); }, [view, loadOpps]);
+
+  const loadRadar = useCallback(async () => {
+    try { setRadar(await listRadar()); } catch { /* best-effort */ }
+  }, []);
+
+  const loadFeeds = useCallback(async () => {
+    try { setFeeds(await listFeeds()); } catch { /* best-effort */ }
+  }, []);
+
+  useEffect(() => {
+    if (view !== "opps") return;
+    void loadOpps();
+    void loadFeeds();
+    void loadRadar();
+    // auto-refresh the radar once per day, per device; the server enforces its own 4h cooldown as backstop
+    const today = new Date().toISOString().slice(0, 10);
+    if (radarRefreshedOn.current !== today && localStorage.getItem("fw-radar-day") !== today) {
+      radarRefreshedOn.current = today;
+      localStorage.setItem("fw-radar-day", today);
+      void (async () => {
+        try {
+          const r = await refreshRadar();
+          if (r.added > 0) { setToast(`Radar: ${r.added} new role${r.added === 1 ? "" : "s"} found.`); void loadRadar(); }
+        } catch { /* best-effort */ }
+      })();
+    }
+  }, [view, loadOpps, loadFeeds, loadRadar]);
+
+  // daily reflection — load today's + recent when entering More
+  useEffect(() => {
+    if (view !== "more") return;
+    void (async () => {
+      try {
+        const r: Reflection = await getReflection();
+        if (r) { setReflText(r.body); setReflMood(r.mood); }
+        setReflSaved(!!r);
+        setReflList(await listReflections(7));
+      } catch { /* best-effort */ }
+    })();
+  }, [view]);
 
   useEffect(() => {
     if (!toast) return;
     const t = window.setTimeout(() => setToast(""), 2600);
     return () => window.clearTimeout(t);
   }, [toast]);
-
-  useEffect(() => {
-    if (!wall || didResume.current) return;
-    didResume.current = true;
-    void (async () => {
-      try {
-        const s = await getActiveSession();
-        if (!s) return;
-        const planned = (wall.planned as Task[] | undefined) ?? [];
-        const smallWins = (wall.small_wins as Task[] | undefined) ?? [];
-        const parked = (wall.parked as Task[] | undefined) ?? [];
-        const t =
-          planned.find((x) => x.id === s.task_id) ??
-          smallWins.find((x) => x.id === s.task_id) ??
-          parked.find((x) => x.id === s.task_id) ?? {
-            id: s.task_id, goal_id: null, title: "Running session", why: null, how: null,
-            output: null, lane: "personal", kind: "task", status: "todo",
-            attention_cost: 2, planned_date: null, completed_at: null,
-          } as Task;
-        setFocus({ task: t, secondsLeft: s.remaining_seconds, sessionId: s.id });
-        setView("focus");
-      } catch { /* ignore */ }
-    })();
-  }, [wall]);
 
   useEffect(() => {
     if (!focus) return;
@@ -260,15 +344,20 @@ export default function App() {
   }, []);
 
   const quickAdd = useCallback(async () => {
-    if (qBusy || !qText.trim()) return;
+    if (captureBusy.current || qBusy || !qText.trim()) return;
+    captureBusy.current = true;
     setQBusy(true);
     try {
-      const r = await quickCapture(qText);
+      let text = qText.trim();
+      const repeat = text.match(/!(daily|weekly|monthly)\b/i);
+      if (repeat) text = text.replace(repeat[0], "").trim();
+      const r = await quickCapture(text);
+      if (repeat) { try { await updateTask(r.id, { recur: repeat[1].toLowerCase() as "daily" | "weekly" | "monthly" }); } catch { /* block still captured */ } }
       setQText("");
-      setToast(`Captured: ${r.title}${r.due_today ? " — today" : ""}`);
+      setToast(`Captured: ${r.title}${repeat ? ` · repeats ${repeat[1].toLowerCase()}` : r.due_today ? " — today" : ""}`);
       void refresh();
     } catch (e) { setToast(e instanceof Error ? e.message : "Capture failed"); }
-    finally { setQBusy(false); }
+    finally { captureBusy.current = false; setQBusy(false); }
   }, [qBusy, qText, refresh]);
 
   const doLogin = useCallback(async () => {
@@ -303,12 +392,13 @@ export default function App() {
         if (f?.task.id === t.id && f.sessionId) void finishOnce(f.sessionId, false);
         return f?.task.id === t.id ? null : f;
       });
-      setToast("Block settled.");
+      setToast(t.recur && t.recur !== "none" ? `Settled — next one queued (${t.recur}).` : "Block settled.");
       void refresh();
     } catch (e) { setToast(e instanceof Error ? e.message : "Failed to settle"); }
   }, [refresh, finishOnce]);
 
   const removeBlock = useCallback(async (t: Task) => {
+    setMenuId(null);
     try {
       await deleteTask(t.id);
       setFocus((f) => (f?.task.id === t.id ? null : f));
@@ -317,16 +407,21 @@ export default function App() {
     } catch (e) { setToast(e instanceof Error ? e.message : "Delete failed"); }
   }, [refresh]);
 
-  const renameBlock = useCallback(async (t: Task) => {
-    const next = editText.trim();
-    setEditingId(null);
-    if (!next || next === t.title) return;
+  const saveEdit = useCallback(async (t: Task) => {
+    if (!editDraft) return;
+    const what = editDraft.what.trim();
+    if (!what) { setToast("Title can't be empty."); return; }
     try {
-      await updateTask(t.id, { what: next });
-      setToast("Renamed.");
+      await updateTask(t.id, {
+        what,
+        estimated_minutes: editDraft.minutes,
+        recur: editDraft.recur as "none" | "daily" | "weekly" | "monthly",
+      });
+      setEditingId(null);
+      setToast("Saved.");
       void refresh();
-    } catch (e) { setToast(e instanceof Error ? e.message : "Rename failed"); }
-  }, [editText, refresh]);
+    } catch (e) { setToast(e instanceof Error ? e.message : "Save failed"); }
+  }, [editDraft, refresh]);
 
   const addGoal = useCallback(async () => {
     if (!gTitle.trim()) return;
@@ -350,12 +445,12 @@ export default function App() {
   const addOpp = useCallback(async () => {
     if (!oTitle.trim()) return;
     try {
-      await createOpportunity({ title: oTitle.trim(), kind: oKind, organisation: oOrg.trim() || undefined, deadline: oDeadline || undefined });
-      setOTitle(""); setOOrg(""); setODeadline("");
+      await createOpportunity({ title: oTitle.trim(), kind: oKind, organisation: oOrg.trim() || undefined, url: oUrl.trim() || undefined, deadline: oDeadline || undefined });
+      setOTitle(""); setOOrg(""); setOUrl(""); setODeadline("");
       setToast("Logged to the horizon.");
       void loadOpps();
     } catch (e) { setToast(e instanceof Error ? e.message : "Failed to create"); }
-  }, [oTitle, oKind, oOrg, oDeadline, loadOpps]);
+  }, [oTitle, oKind, oOrg, oUrl, oDeadline, loadOpps]);
 
   const advance = useCallback(async (o: Opportunity, to: string) => {
     try {
@@ -364,6 +459,60 @@ export default function App() {
       void loadOpps();
     } catch (e) { setToast(e instanceof Error ? e.message : "Move rejected"); }
   }, [loadOpps]);
+
+  const addFeedRow = useCallback(async () => {
+    if (!fLabel.trim() && !fParam.trim()) { setToast("Give the feed a name."); return; }
+    try {
+      await addFeed({ source: fSource, param: fParam.trim(), label: fLabel.trim() || fParam.trim() || fSource });
+      setFParam(""); setFLabel("");
+      setToast("Feed added.");
+      void loadFeeds();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Feed rejected"); }
+  }, [fSource, fParam, fLabel, loadFeeds]);
+
+  const removeFeedRow = useCallback(async (f: WatchFeed) => {
+    try {
+      await removeFeed(f.id);
+      setToast(`Feed removed: ${f.label}`);
+      void loadFeeds();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Remove failed"); }
+  }, [loadFeeds]);
+
+  const manualRefresh = useCallback(async () => {
+    try {
+      const r = await refreshRadar();
+      if (r.skipped) setToast(`Radar refreshed recently — next in ~${r.next_refresh_in_minutes ?? 0} min.`);
+      else setToast(r.added > 0 ? `${r.added} new role${r.added === 1 ? "" : "s"} found.` : "Radar up to date.");
+      void loadRadar();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Refresh failed"); }
+  }, [loadRadar]);
+
+  const pinRow = useCallback(async (d: DiscoveredItem) => {
+    try {
+      await pinItem(d.id);
+      setToast("Pinned to your pipeline.");
+      void loadRadar();
+      if (view === "opps") void loadOpps();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Pin failed"); }
+  }, [loadRadar, loadOpps, view]);
+
+  const dismissRow = useCallback(async (d: DiscoveredItem) => {
+    try {
+      await dismissItem(d.id);
+      void loadRadar();
+    } catch { /* best-effort */ }
+  }, [loadRadar]);
+
+  const saveRefl = useCallback(async () => {
+    if (!reflText.trim()) { setToast("Write a line first — even one honest sentence."); return; }
+    try {
+      await saveReflection(reflText.trim(), reflMood);
+      setReflSaved(true);
+      setToast("Reflection saved for today.");
+      setReflList(await listReflections(7));
+      void loadBriefing();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Save failed"); }
+  }, [reflText, reflMood, loadBriefing]);
 
   const planned = (wall?.planned as Task[] | undefined) ?? [];
   const smallWins = (wall?.small_wins as Task[] | undefined) ?? [];
@@ -407,22 +556,33 @@ export default function App() {
       <header className="app-header">
         <h1 className="wordmark">FOCUS//WALL</h1>
         <div className="metrics">
-          <span>XP {xp}</span>
-          <span>STREAK {streak}D</span>
-          <span>{String(doneCount).padStart(2, "0")} / {String(planned.length).padStart(2, "0")}</span>
-          <button className="theme-btn" onClick={() => switchTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}>◐</button>
+          <span title="Experience earned today">XP {xp}</span>
+          <span title="Consecutive days with a settled block">STREAK {streak}D</span>
+          <span title="Core blocks settled today">{String(doneCount).padStart(2, "0")} / {String(planned.length).padStart(2, "0")}</span>
+          <button className="theme-btn" aria-label="Switch theme — syncs across your devices" title="Switch theme (syncs to your account)"
+            onClick={() => switchTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}>◐</button>
         </div>
       </header>
       {error && <div className="error-note">{error}</div>}
 
       {view === "wall" && (
         <main className="wall-viewport">
+          {briefing && (
+            <div className="briefing" title="Your day at a glance — live from your data">
+              <span><b>{briefing.done_today}</b> done</span><span className="sep">·</span>
+              <span><b>{briefing.focus_minutes}</b> focus min</span><span className="sep">·</span>
+              <span><b>{briefing.open_tasks}</b> open</span>
+              {briefing.next_deadline && (<><span className="sep">·</span><span>next due: <b>{briefing.next_deadline.title}</b> ({briefing.next_deadline.deadline})</span></>)}
+              {!briefing.reflection_done && <button className="chip" title="One honest line about today — lives in More" onClick={() => setView("more")}>reflect?</button>}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, margin: "4px 0 10px" }}>
             <input ref={captureRef} className="field" style={{ margin: 0 }}
-              placeholder="Capture — !t for today, !25 for minutes"
+              title="Type a task and press Enter. !t = today · !25 = 25 minutes · !daily !weekly !monthly = repeats"
+              placeholder="Capture — !t today · !25 minutes · !daily repeats"
               value={qText} onChange={(e) => setQText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void quickAdd(); }} />
-            <button className="ghost-btn" style={{ height: "auto" }} disabled={qBusy} onClick={() => void quickAdd()}>ADD</button>
+            <button className="ghost-btn" style={{ height: "auto" }} disabled={qBusy} title="Add the line above (or just press Enter)" onClick={() => void quickAdd()}>ADD</button>
           </div>
           {sections.map(([label, items]) => (
             <section key={label}>
@@ -436,40 +596,58 @@ export default function App() {
                     <div className="pin" />
                     <div className="card-tilt" style={seedTilt(t.id)}>
                       <div className="card-top">
-                        <span className="lane-tag">{t.lane}</span>
-                        <span className="fraction">
+                        <span className="lane-tag" title="Which part of life this block serves">{t.lane}</span>
+                        <span className="fraction" title="Position on today's wall">
                           {String(i + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
                           <button
-                            aria-label="Delete block"
-                            onClick={() => void removeBlock(t)}
-                            style={{ marginLeft: 6, border: "none", background: "transparent", color: "var(--ink-faint)", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: 2 }}
-                          >✕</button>
+                            className="kebab-btn"
+                            aria-label="Task options — edit or delete"
+                            aria-haspopup="menu"
+                            aria-expanded={menuId === t.id}
+                            title="Edit or delete this block"
+                            onClick={(e) => { e.stopPropagation(); setMenuId(menuId === t.id ? null : t.id); }}
+                          >⋯</button>
                         </span>
                       </div>
-                      {editingId === t.id ? (
-                        <input
-                          className="field" style={{ margin: "2px 0 6px" }} autoFocus value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") void renameBlock(t);
-                            if (e.key === "Escape") setEditingId(null);
-                          }}
-                          onBlur={() => void renameBlock(t)}
-                        />
-                      ) : (
-                        <h3
-                          className="card-title"
-                          style={{ cursor: "text" }}
-                          onClick={() => { setEditingId(t.id); setEditText(t.title); }}
-                        >{t.title}</h3>
+                      {menuId === t.id && (
+                        <div className="task-menu" role="menu">
+                          <button role="menuitem" title="Change title, minutes or repeat rule" onClick={() => { setMenuId(null); setEditingId(t.id); }}>Edit</button>
+                          <button role="menuitem" title="Remove this block immediately (no undo)" onClick={() => void removeBlock(t)}>Delete</button>
+                        </div>
                       )}
-                      {(t.how || t.why) && <p className="how-line">{t.how || t.why}</p>}
+                      {editingId === t.id && editDraft ? (
+                        <div className="edit-form">
+                          <input className="field" style={{ margin: 0 }} aria-label="Task title" value={editDraft.what} autoFocus
+                            onChange={(e) => setEditDraft({ ...editDraft, what: e.target.value })} />
+                          <div className="edit-row">
+                            <select className="field" style={{ margin: 0 }} aria-label="Minutes" value={editDraft.minutes}
+                              title="How long one block takes"
+                              onChange={(e) => setEditDraft({ ...editDraft, minutes: Number(e.target.value) })}>
+                              {MINUTES_OPTS.map((m) => <option key={m} value={m}>{m} min</option>)}
+                            </select>
+                            <select className="field" style={{ margin: 0 }} aria-label="Repeat" value={editDraft.recur}
+                              title="Repeats automatically — a fresh copy appears each cycle"
+                              onChange={(e) => setEditDraft({ ...editDraft, recur: e.target.value })}>
+                              {REPEAT_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                            </select>
+                          </div>
+                          <div className="edit-row">
+                            <button className="ghost-btn" style={{ height: "auto", flex: 1 }} title="Apply changes" onClick={() => void saveEdit(t)}>SAVE</button>
+                            <button className="ghost-btn" style={{ height: "auto", flex: 1 }} title="Discard changes" onClick={() => setEditingId(null)}>CANCEL</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <h3 className="card-title" title={t.recur && t.recur !== "none" ? `Repeats ${t.recur}` : undefined}>{t.title}</h3>
+                          {t.how && <p className="how-line">{t.how}</p>}
+                        </>
+                      )}
                       <div className="base-plate">
                         <span className={`plate-timer${focus?.task.id === t.id ? " live" : ""}`}>
                           {focus && focus.task.id === t.id ? fmt(focus.secondsLeft) : `${String((t.attention_cost ?? 2) * 15).padStart(2, "0")}:00`}
                         </span>
                         {t.status !== "done" && focus?.task.id !== t.id && <HoldButton locked={false} onEngaged={() => void engage(t)} />}
-                        <button className="ghost-btn" onClick={() => void complete(t)}>SETTLE</button>
+                        <button className="ghost-btn" title="Mark done — it stays on the wall as evidence" onClick={() => void complete(t)}>SETTLE</button>
                       </div>
                     </div>
                   </article>
@@ -487,7 +665,7 @@ export default function App() {
             <>
               <h2 className="focus-title">{focus.task.title}</h2>
               <div className="focus-count">{fmt(focus.secondsLeft)}</div>
-              <button className="ghost-btn" onClick={() => void abandon()}>END EARLY</button>
+              <button className="ghost-btn" title="Stop now — logged as abandoned, still honest data" onClick={() => void abandon()}>END EARLY</button>
             </>
           ) : (
             <p className="empty-note">No session running. Hold to engage from the wall.</p>
@@ -507,7 +685,7 @@ export default function App() {
               <h4>{g.title}</h4>
               {g.why && <p>{g.why}</p>}
               <div className="goal-meta">{g.lane} · cost {g.attention_cost} · {g.open_tasks} open{g.due_date ? ` · due ${g.due_date}` : ""}</div>
-              {g.status !== "active" && <button className="ghost-btn" onClick={() => void activate(g)}>ACTIVATE</button>}
+              {g.status !== "active" && <button className="ghost-btn" title="Put this goal's tasks on the wall" onClick={() => void activate(g)}>ACTIVATE</button>}
             </div>
           ))}
           {goals.length === 0 && <p className="empty-note">No goals here yet.</p>}
@@ -523,7 +701,7 @@ export default function App() {
           <select className="field" value={gLane} onChange={(e) => setGLane(e.target.value)}>
             {["technical", "creative", "university", "competitions", "opportunities", "writing", "exercise", "personal"].map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
-          <button className="ghost-btn" onClick={() => void addGoal()}>CARVE IT</button>
+          <button className="ghost-btn" title="Create the goal" onClick={() => void addGoal()}>CARVE IT</button>
         </main>
       )}
 
@@ -534,6 +712,46 @@ export default function App() {
               <button key={f} className={`chip${oppFilter === f ? " active" : ""}`} onClick={() => setOppFilter(f)}>{f}</button>
             ))}
           </div>
+
+          <div className="section-label">Radar — roles found for you</div>
+          <button className="ghost-btn" title="Pull fresh roles from all your feeds (auto-capped at once per 4h)" onClick={() => void manualRefresh()}>REFRESH NOW</button>
+          {radar.map((d) => (
+            <div key={d.id} className="goal-row">
+              <h4>{d.title}</h4>
+              <div className="goal-meta">
+                <span className="src-tag">{d.source}</span>
+                {" "}{d.organisation ?? ""}{d.eligibility ? ` · ${d.eligibility}` : " · location unknown"}
+              </div>
+              <div className="chip-row" style={{ marginBottom: 0 }}>
+                <button className="chip" title="Move into your pipeline below" onClick={() => void pinRow(d)}>PIN</button>
+                {d.url && <a className="chip" href={d.url} target="_blank" rel="noreferrer" title="Open the original posting">OPEN</a>}
+                <button className="chip" title="Hide — it won't come back" onClick={() => void dismissRow(d)}>DISMISS</button>
+              </div>
+            </div>
+          ))}
+          {radar.length === 0 && <p className="empty-note">Nothing surfaced yet. Add feeds below, then refresh.</p>}
+
+          <div className="section-label">Feeds — where roles come from</div>
+          {feeds.map((f) => (
+            <div key={f.id} className="goal-row">
+              <h4>{f.label}</h4>
+              <div className="goal-meta"><span className="src-tag">{f.source}</span>{f.param ? ` · ${f.param}` : ""}</div>
+              <button className="ghost-btn" title="Stop watching this feed" onClick={() => void removeFeedRow(f)}>REMOVE</button>
+            </div>
+          ))}
+          <div className="edit-row">
+            <select className="field" style={{ margin: 0 }} aria-label="Feed source" value={fSource}
+              title="Where to pull roles from"
+              onChange={(e) => setFSource(e.target.value)}>
+              {FEED_SOURCES.map(([v, l]) => <option key={v} value={v}>{v}</option>)}
+            </select>
+            <input className="field" style={{ margin: 0 }} aria-label="Feed slug or keyword" placeholder={fSource === "greenhouse" || fSource === "lever" ? "board-slug" : "keyword (optional)"}
+              value={fParam} onChange={(e) => setFParam(e.target.value)} />
+          </div>
+          <input className="field" placeholder="Name it (e.g. Quant internships)" value={fLabel} onChange={(e) => setFLabel(e.target.value)} />
+          <button className="ghost-btn" title="Start watching this source" onClick={() => void addFeedRow()}>WATCH</button>
+
+          <div className="section-label">Pipeline</div>
           {opps.map((o) => (
             <div key={o.id} className="goal-row">
               <h4>{o.title}</h4>
@@ -544,30 +762,51 @@ export default function App() {
               </div>
               <div className="chip-row" style={{ marginBottom: 0 }}>
                 {o.next_states.map((s) => (
-                  <button key={s} className="chip" onClick={() => void advance(o, s)}>{s === "archived" ? "archive" : `→ ${s}`}</button>
+                  <button key={s} className="chip" title={`Move to ${s}`} onClick={() => void advance(o, s)}>{s === "archived" ? "archive" : `→ ${s}`}</button>
                 ))}
               </div>
             </div>
           ))}
           {opps.length === 0 && <p className="empty-note">The horizon is clear. Log something below.</p>}
-          <div className="section-label">Log opportunity</div>
+
+          <div className="section-label">Log opportunity — paste any link</div>
           <input className="field" placeholder="Title" value={oTitle} onChange={(e) => setOTitle(e.target.value)} />
           <input className="field" placeholder="Organisation" value={oOrg} onChange={(e) => setOOrg(e.target.value)} />
+          <input className="field" placeholder="URL — e.g. an intern-list or LinkedIn post" value={oUrl} onChange={(e) => setOUrl(e.target.value)} />
           <input className="field" type="date" value={oDeadline} onChange={(e) => setODeadline(e.target.value)} />
           <div className="chip-row">
             {["learn", "compete", "earn", "other"].map((k) => (
               <button key={k} className={`chip${oKind === k ? " active" : ""}`} onClick={() => setOKind(k)}>{KIND_LABEL[k]}</button>
             ))}
           </div>
-          <button className="ghost-btn" onClick={() => void addOpp()}>LOG IT</button>
+          <button className="ghost-btn" title="Save it to your pipeline" onClick={() => void addOpp()}>LOG IT</button>
         </main>
       )}
 
       {view === "more" && (
         <main className="panel">
+          <div className="section-label">Today's reflection — one honest line</div>
+          <textarea className="field" rows={4} placeholder="What actually happened today? What dragged, what moved?"
+            value={reflText} onChange={(e) => { setReflText(e.target.value); setReflSaved(false); }} />
+          <div className="chip-row">
+            {[["great", "Great"], ["okay", "Okay"], ["rough", "Rough"]].map(([v, l]) => (
+              <button key={v} className={`chip${reflMood === v ? " active" : ""}`} title={`Today felt ${l.toLowerCase()}`} onClick={() => { setReflMood(reflMood === v ? null : v); setReflSaved(false); }}>{l}</button>
+            ))}
+          </div>
+          <button className="ghost-btn" title="One entry per day — saving again overwrites today's" onClick={() => void saveRefl()}>{reflSaved ? "UPDATE TODAY" : "SAVE"}</button>
+          {reflList.length > 0 && (
+            <>
+              <div className="section-label">Last {reflList.length} days</div>
+              {reflList.map((r) => (
+                <div key={r.date} className="refl-item">
+                  <div className="goal-meta">{r.date}{r.mood ? ` · ${r.mood}` : ""}</div>
+                  <p>{r.body}</p>
+                </div>
+              ))}
+            </>
+          )}
           <div className="section-label">Utility</div>
-          <button className="ghost-btn" onClick={() => switchTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}>SWITCH THEME</button>
-          <p className="empty-note">Queued: agenda week strip, reminders.</p>
+          <button className="ghost-btn" title="Switch between dark and light — saved to your account" onClick={() => switchTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}>SWITCH THEME</button>
         </main>
       )}
 
@@ -580,7 +819,7 @@ export default function App() {
               {gi > 0 && <span className="tray-rule" />}
               <span className="tray-label">{label}</span>
               {items.map((o) => (
-                <button key={o.id} className="tray-pill" onClick={() => setView("opps")}>
+                <button key={o.id} className="tray-pill" title="Open the opportunities view" onClick={() => setView("opps")}>
                   <span className="tray-dot" />{o.title}
                 </button>
               ))}
@@ -591,7 +830,7 @@ export default function App() {
 
       <nav className="navbar">
         {(["wall", "focus", "goals", "opps", "more"] as View[]).map((v) => (
-          <NavButton key={v} active={view === v} onGo={() => setView(v)}>{GLYPHS[v]}</NavButton>
+          <NavButton key={v} active={view === v} hint={NAV_HINTS[v]} onGo={() => setView(v)}>{GLYPHS[v]}</NavButton>
         ))}
       </nav>
 

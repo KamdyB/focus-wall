@@ -1,20 +1,15 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from app.core.config import local_today
 
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
-
-
-WAT = timezone(timedelta(hours=1))  # Africa/Lagos — fixed offset, no DST
-
-
-def local_today() -> date:
-    return datetime.now(WAT).date()
 
 
 class Base(DeclarativeBase):
@@ -54,6 +49,35 @@ class Task(Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RecurringSeries(Base):
+    """A repeat rule. Tasks attach to a series; completing one spawns the next occurrence.
+    anchor_day preserves the original day-of-month for monthly rules (29/30/31 clamp)."""
+    __tablename__ = "recurring_series"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    rule: Mapped[str] = mapped_column(String(16))  # daily | weekly | monthly
+    anchor_day: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1..31, monthly only
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TaskRecurrence(Base):
+    __tablename__ = "task_recurrence"
+
+    task_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("tasks.id"), primary_key=True)
+    series_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("recurring_series.id"), index=True)
+
+
+class DailyReflection(Base):
+    __tablename__ = "daily_reflections"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    day: Mapped[date] = mapped_column(Date, unique=True)
+    body: Mapped[str] = mapped_column(Text)
+    mood: Mapped[str | None] = mapped_column(String(16), nullable=True)  # great | okay | rough
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
 class HealthAction(Base):
@@ -101,6 +125,7 @@ class DailyStreak(Base):
 
 class Opportunity(Base):
     __tablename__ = "opportunities"
+
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     kind: Mapped[str] = mapped_column(String(24), default="learn")
     title: Mapped[str] = mapped_column(String(200))
@@ -116,6 +141,7 @@ class Opportunity(Base):
 
 class OpportunityEvent(Base):
     __tablename__ = "opportunity_events"
+
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     opportunity_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("opportunities.id"), index=True)
     from_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
@@ -127,33 +153,57 @@ class OpportunityEvent(Base):
 class DiscoveredItem(Base):
     __tablename__ = "discovered_items"
     __table_args__ = (UniqueConstraint("source", "external_id", name="uq_source_external"),)
+
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    source: Mapped[str] = mapped_column(String(32))  # greenhouse | lever
+    source: Mapped[str] = mapped_column(String(32))  # greenhouse | lever | remotive | arbeitnow | jobicy
     external_id: Mapped[str] = mapped_column(String(200))
     kind: Mapped[str] = mapped_column(String(24), default="earn")
     title: Mapped[str] = mapped_column(String(240))
     organisation: Mapped[str | None] = mapped_column(String(160), nullable=True)
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    eligibility: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    eligibility: Mapped[str | None] = mapped_column(String(64), nullable=True)  # provider's own location field; null = unknown
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     first_seen: Mapped[date] = mapped_column(Date, default=local_today)
     fit_score: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[str] = mapped_column(String(16), default="discovered")  # discovered|pinned|dismissed
+    status: Mapped[str] = mapped_column(String(16), default="discovered")  # discovered | pinned | dismissed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WatchFeed(Base):
+    """A radar source: company boards (greenhouse/lever slug) or keyword feeds (remotive/jobicy/arbeitnow)."""
+    __tablename__ = "watch_feeds"
+    __table_args__ = (UniqueConstraint("source", "param", name="uq_feed_source_param"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    source: Mapped[str] = mapped_column(String(16))
+    param: Mapped[str] = mapped_column(String(160), default="")  # slug, or search keyword, or "" for whole feed
+    label: Mapped[str] = mapped_column(String(120))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class WatchCompany(Base):
+    """Legacy watchlist — kept only as the one-time import source for watch_feeds. Do not write here."""
     __tablename__ = "watch_companies"
     __table_args__ = (UniqueConstraint("board", "slug", name="uq_board_slug"),)
+
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(120))
-    board: Mapped[str] = mapped_column(String(16))  # greenhouse | lever
+    board: Mapped[str] = mapped_column(String(16))
     slug: Mapped[str] = mapped_column(String(120))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class RadarState(Base):
+    """Server-side guard rows: last radar refresh time, one-time company import flag."""
+    __tablename__ = "radar_state"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(64))
+
+
 class SessionLog(Base):
     __tablename__ = "session_logs"
+
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     session_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True, unique=True, index=True)
     task_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
@@ -165,6 +215,7 @@ class SessionLog(Base):
 
 class UserSetting(Base):
     __tablename__ = "user_settings"
+
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(String(255))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
