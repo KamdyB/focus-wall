@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   AuthError, activateGoal, advanceOpportunity, completeTask, createGoal, createOpportunity,
-  finishFocus, getActiveSession, getSettings, getWall, listGoals, listOpportunities,
-  login, quickCapture, runDecay, saveSetting, startFocus,
+  deleteTask, finishFocus, getActiveSession, getSettings, getWall, listGoals, listOpportunities,
+  login, quickCapture, runDecay, saveSetting, startFocus, updateTask,
 } from "./lib/api";
 import type { Goal, Opportunity, Task } from "./types";
 import { playChime, unlockChime } from "./lib/chime";
@@ -39,7 +39,7 @@ function HoldButton({ locked, onEngaged }: { locked: boolean; onEngaged: () => v
   const fired = useRef(false);
 
   const start = useCallback(() => {
-    unlockChime(); // user gesture — opens the audio door for the end-of-session chime
+    unlockChime();
     if (locked || timer.current !== null) return;
     fired.current = false;
     setFilling(true);
@@ -112,7 +112,9 @@ export default function App() {
 
   const [needsLogin, setNeedsLogin] = useState(false);
   const [loginPw, setLoginPw] = useState(""); const [loginErr, setLoginErr] = useState("");
-  const [qText, setQText] = useState("");
+  const [qText, setQText] = useState(""); const [qBusy, setQBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   const wipeRef = useRef<HTMLDivElement>(null);
   const wipeBusy = useRef(false);
@@ -144,7 +146,7 @@ export default function App() {
       wipeBusy.current = true;
       document.documentElement.dataset.theme = next;
       localStorage.setItem("fw-theme", next);
-      void saveSetting("theme", next).catch(() => { /* server sync best-effort */ });
+      void saveSetting("theme", next).catch(() => { /* best-effort */ });
       wipeRef.current?.classList.remove("running");
       window.setTimeout(() => { wipeBusy.current = false; }, 60);
     };
@@ -166,11 +168,10 @@ export default function App() {
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  // morning clean — decay stale tasks whenever the app opens
   useEffect(() => {
     void (async () => {
       try { const d = await runDecay(); if (d.decayed > 0) void refresh(); }
-      catch { /* silent — best-effort */ }
+      catch { /* best-effort */ }
     })();
   }, [refresh]);
 
@@ -199,7 +200,6 @@ export default function App() {
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  // resume an interrupted session once the wall has loaded
   useEffect(() => {
     if (!wall || didResume.current) return;
     didResume.current = true;
@@ -247,7 +247,6 @@ export default function App() {
     return () => window.clearInterval(iv);
   }, [focus?.sessionId, refresh, finishOnce]);
 
-  // Cmd/Ctrl+K -> capture bar
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -261,14 +260,16 @@ export default function App() {
   }, []);
 
   const quickAdd = useCallback(async () => {
-    if (!qText.trim()) return;
+    if (qBusy || !qText.trim()) return;
+    setQBusy(true);
     try {
       const r = await quickCapture(qText);
       setQText("");
       setToast(`Captured: ${r.title}${r.due_today ? " — today" : ""}`);
       void refresh();
     } catch (e) { setToast(e instanceof Error ? e.message : "Capture failed"); }
-  }, [qText, refresh]);
+    finally { setQBusy(false); }
+  }, [qBusy, qText, refresh]);
 
   const doLogin = useCallback(async () => {
     try {
@@ -306,6 +307,26 @@ export default function App() {
       void refresh();
     } catch (e) { setToast(e instanceof Error ? e.message : "Failed to settle"); }
   }, [refresh, finishOnce]);
+
+  const removeBlock = useCallback(async (t: Task) => {
+    try {
+      await deleteTask(t.id);
+      setFocus((f) => (f?.task.id === t.id ? null : f));
+      setToast("Block removed.");
+      void refresh();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Delete failed"); }
+  }, [refresh]);
+
+  const renameBlock = useCallback(async (t: Task) => {
+    const next = editText.trim();
+    setEditingId(null);
+    if (!next || next === t.title) return;
+    try {
+      await updateTask(t.id, { what: next });
+      setToast("Renamed.");
+      void refresh();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Rename failed"); }
+  }, [editText, refresh]);
 
   const addGoal = useCallback(async () => {
     if (!gTitle.trim()) return;
@@ -398,10 +419,10 @@ export default function App() {
         <main className="wall-viewport">
           <div style={{ display: "flex", gap: 8, margin: "4px 0 10px" }}>
             <input ref={captureRef} className="field" style={{ margin: 0 }}
-              placeholder="Capture — add !t for today, !25 for minutes"
+              placeholder="Capture — !t for today, !25 for minutes"
               value={qText} onChange={(e) => setQText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void quickAdd(); }} />
-            <button className="ghost-btn" style={{ height: "auto" }} onClick={() => void quickAdd()}>ADD</button>
+            <button className="ghost-btn" style={{ height: "auto" }} disabled={qBusy} onClick={() => void quickAdd()}>ADD</button>
           </div>
           {sections.map(([label, items]) => (
             <section key={label}>
@@ -416,9 +437,32 @@ export default function App() {
                     <div className="card-tilt" style={seedTilt(t.id)}>
                       <div className="card-top">
                         <span className="lane-tag">{t.lane}</span>
-                        <span className="fraction">{String(i + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}</span>
+                        <span className="fraction">
+                          {String(i + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
+                          <button
+                            aria-label="Delete block"
+                            onClick={() => void removeBlock(t)}
+                            style={{ marginLeft: 6, border: "none", background: "transparent", color: "var(--ink-faint)", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: 2 }}
+                          >✕</button>
+                        </span>
                       </div>
-                      <h3 className="card-title">{t.title}</h3>
+                      {editingId === t.id ? (
+                        <input
+                          className="field" style={{ margin: "2px 0 6px" }} autoFocus value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void renameBlock(t);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                          onBlur={() => void renameBlock(t)}
+                        />
+                      ) : (
+                        <h3
+                          className="card-title"
+                          style={{ cursor: "text" }}
+                          onClick={() => { setEditingId(t.id); setEditText(t.title); }}
+                        >{t.title}</h3>
+                      )}
                       {(t.how || t.why) && <p className="how-line">{t.how || t.why}</p>}
                       <div className="base-plate">
                         <span className={`plate-timer${focus?.task.id === t.id ? " live" : ""}`}>

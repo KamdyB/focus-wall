@@ -22,7 +22,6 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/* ---- login gate ---- */
 export async function login(password: string): Promise<void> {
   const data = await request<{ token: string }>("/auth/login", {
     method: "POST",
@@ -31,7 +30,6 @@ export async function login(password: string): Promise<void> {
   localStorage.setItem("fw-session", data.token);
 }
 
-/* ---- task normalization: backend vocab in, frontend vocab out, ONE place ---- */
 type RawTask = {
   id: string;
   goal_id?: string | null;
@@ -75,6 +73,19 @@ export function completeTask(taskId: string): Promise<unknown> {
   return request(`/tasks/${taskId}/complete`, { method: "POST" });
 }
 
+export type TaskPatch = Partial<{
+  what: string; how: string; output: string; estimated_minutes: number;
+  size: string; lane: string; importance: number; due_at: string | null; goal_id: string | null;
+}>;
+
+export function updateTask(taskId: string, patch: TaskPatch): Promise<unknown> {
+  return request(`/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteTask(taskId: string): Promise<{ deleted: boolean }> {
+  return request(`/tasks/${taskId}`, { method: "DELETE" });
+}
+
 export function quickCapture(text: string): Promise<{ id: string; title: string; minutes: number; due_today: boolean }> {
   return request("/quick-capture", { method: "POST", body: JSON.stringify({ text }) });
 }
@@ -84,7 +95,6 @@ export function runDecay(): Promise<{ decayed: number }> {
 }
 
 export function startFocus(taskId: string, minutes: number): Promise<{ id: string }> {
-  // backend field is preset_minutes
   return request<{ id: string }>("/focus-sessions", {
     method: "POST",
     body: JSON.stringify({ task_id: taskId, preset_minutes: minutes }),
