@@ -4,10 +4,9 @@ import {
   AuthError, activateGoal, addFeed, advanceOpportunity, completeTask, createGoal, createOpportunity,
   deleteTask, dismissItem, finishFocus, getActiveSession, getBriefing, getReflection, getSettings,
   getTask, getWall, listFeeds, listGoals, listOpportunities, listRadar, listReflections, login,
-  pinItem, quickCapture, refreshRadar, removeFeed, runDecay, saveReflection, saveSetting,
-  startFocus, updateTask,
+  pinItem, quickCapture, refreshRadar, removeFeed, runDecay, saveReflection, saveSetting, startFocus,
+  updateTask,
 } from "./lib/api";
-
 import type {
   DailyBriefing, DiscoveredItem, Goal, Opportunity, Reflection, Task, WatchFeed,
 } from "./types";
@@ -161,6 +160,8 @@ export default function App() {
   const finishedSessions = useRef<Set<string>>(new Set());
   const captureRef = useRef<HTMLInputElement>(null);
   const captureBusy = useRef(false);
+  const captureForce = useRef(false);      // second ADD tap after a duplicate warning logs anyway
+  const lastCapture = useRef("");
   const radarRefreshedOn = useRef("");
 
   useEffect(() => {
@@ -220,18 +221,16 @@ export default function App() {
     })();
   }, [refresh]);
 
-  // close the kebab menu on any outside click
   useEffect(() => {
     if (!menuId) return;
     const close = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
-      if (!t.closest(".task-menu") && !t.closest(".kebab-btn")) setMenuId(null);
+      if (!t.closest(".task-menu") && !t.closest(".kebab-btn") && !t.closest(".pin")) setMenuId(null);
     };
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, [menuId]);
 
-  // load the edit form from the source of truth (true minutes + saved repeat rule)
   useEffect(() => {
     if (!editingId) { setEditDraft(null); return; }
     let alive = true;
@@ -275,7 +274,6 @@ export default function App() {
     void loadOpps();
     void loadFeeds();
     void loadRadar();
-    // auto-refresh the radar once per day, per device; the server enforces its own 4h cooldown as backstop
     const today = new Date().toISOString().slice(0, 10);
     if (radarRefreshedOn.current !== today && localStorage.getItem("fw-radar-day") !== today) {
       radarRefreshedOn.current = today;
@@ -289,7 +287,6 @@ export default function App() {
     }
   }, [view, loadOpps, loadFeeds, loadRadar]);
 
-  // daily reflection — load today's + recent when entering More
   useEffect(() => {
     if (view !== "more") return;
     void (async () => {
@@ -351,8 +348,20 @@ export default function App() {
       let text = qText.trim();
       const repeat = text.match(/!(daily|weekly|monthly)\b/i);
       if (repeat) text = text.replace(repeat[0], "").trim();
-      const r = await quickCapture(text);
-      if (repeat) { try { await updateTask(r.id, { recur: repeat[1].toLowerCase() as "daily" | "weekly" | "monthly" }); } catch { /* block still captured */ } }
+      const force = captureForce.current && text === lastCapture.current;
+      const r = await quickCapture(text, force);
+      if (!r.created && r.duplicate_of) {
+        captureForce.current = true;
+        lastCapture.current = text;
+        setToast(`Already open: "${r.duplicate_of}" — press ADD again to log anyway.`);
+        return; // keep the text so the second tap is one gesture away
+      }
+      captureForce.current = false;
+      lastCapture.current = "";
+      if (repeat && r.created) {
+        try { await updateTask(r.id, { recur: repeat[1].toLowerCase() as "daily" | "weekly" | "monthly" }); }
+        catch { /* block still captured */ }
+      }
       setQText("");
       setToast(`Captured: ${r.title}${repeat ? ` · repeats ${repeat[1].toLowerCase()}` : r.due_today ? " — today" : ""}`);
       void refresh();
@@ -578,8 +587,8 @@ export default function App() {
           )}
           <div style={{ display: "flex", gap: 8, margin: "4px 0 10px" }}>
             <input ref={captureRef} className="field" style={{ margin: 0 }}
-              title="Type a task and press Enter. !t = today · !25 = 25 minutes · !daily !weekly !monthly = repeats"
-              placeholder="Capture — !t today · !25 minutes · !daily repeats"
+              title="Bare capture = 45 min (a real block). !25 = 25 minutes (under 30 = small win). !t = due today. !daily !weekly !monthly = repeats. Duplicate titles ask first."
+              placeholder="Capture — !t today · !25 for 25 min · !daily repeats"
               value={qText} onChange={(e) => setQText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void quickAdd(); }} />
             <button className="ghost-btn" style={{ height: "auto" }} disabled={qBusy} title="Add the line above (or just press Enter)" onClick={() => void quickAdd()}>ADD</button>
@@ -593,7 +602,14 @@ export default function App() {
                     key={t.id}
                     className={`task-card lane-${t.lane}${focus?.task.id === t.id ? " card-active" : ""}${t.status === "done" ? " settled" : ""}`}
                   >
-                    <div className="pin" />
+                    <button
+                      className="pin"
+                      aria-label="Task options — edit or delete"
+                      aria-haspopup="menu"
+                      aria-expanded={menuId === t.id}
+                      title="Edit or delete this block"
+                      onClick={(e) => { e.stopPropagation(); setMenuId(menuId === t.id ? null : t.id); }}
+                    />
                     <div className="card-tilt" style={seedTilt(t.id)}>
                       <div className="card-top">
                         <span className="lane-tag" title="Which part of life this block serves">{t.lane}</span>

@@ -373,3 +373,19 @@ button, input, select { font-family: inherit; }
 }
 .refl-item p { margin: 4px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
 a.chip { text-decoration: none; }
+/* ---- usability pass: real tap targets + the pin is now a button ---- */
+.kebab-btn {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: 2px;
+  font-size: 15px; /* glyph unchanged — just room around it */
+}
+button.pin {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}

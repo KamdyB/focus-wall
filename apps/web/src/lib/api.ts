@@ -95,8 +95,14 @@ export function deleteTask(taskId: string): Promise<{ deleted: boolean }> {
   return request(`/tasks/${taskId}`, { method: "DELETE" });
 }
 
-export function quickCapture(text: string): Promise<{ id: string; title: string; minutes: number; due_today: boolean }> {
-  return request("/quick-capture", { method: "POST", body: JSON.stringify({ text }) });
+export type CaptureResult = {
+  created: boolean;
+  duplicate_of: string | null;
+  id: string; title: string; minutes: number; due_today: boolean;
+};
+
+export function quickCapture(text: string, force = false): Promise<CaptureResult> {
+  return request("/quick-capture", { method: "POST", body: JSON.stringify({ text, force }) });
 }
 
 export function runDecay(): Promise<{ decayed: number }> {
@@ -163,7 +169,7 @@ export function getOpportunityEvents(
   return request(`/opportunities/${id}/events`);
 }
 
-/* ---- radar feeds (replaces the old companies endpoints) ---- */
+/* ---- radar feeds ---- */
 export function listRadar(): Promise<DiscoveredItem[]> {
   return request<DiscoveredItem[]>("/radar");
 }

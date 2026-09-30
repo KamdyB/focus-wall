@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import os
@@ -42,7 +43,7 @@ async def login(body: LoginIn):
     if not pw:
         raise HTTPException(status_code=503, detail="AUTH_PASSWORD not configured on the server")
     if not hmac.compare_digest(body.password.encode(), pw.encode()):
-        time.sleep(0.3)  # blunt brute force
+        await asyncio.sleep(0.3)  # blunt brute force — non-blocking now, event loop stays free
         raise HTTPException(status_code=401, detail="Wrong password")
     exp = int(time.time()) + TOKEN_TTL_SECONDS
     sig = hmac.new(_session_key().encode(), str(exp).encode(), hashlib.sha256).hexdigest()
