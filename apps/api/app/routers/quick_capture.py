@@ -5,7 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Task, WAT
+from datetime import timedelta, timezone
+
+from app.core.config import settings
+from app.db.models import Task
+
+WAT = timezone(timedelta(hours=settings.tz_offset_hours))
+
 from app.db.session import get_session
 
 router = APIRouter(prefix="/quick-capture", tags=["quick-capture"])
