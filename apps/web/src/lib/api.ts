@@ -134,11 +134,29 @@ export function listGoals(status?: string): Promise<Goal[]> {
   return request<Goal[]>(`/goals${q}`);
 }
 
+export type GoalCreateResult = {
+  created: boolean;
+  duplicate_of: string | null;
+  id: string;
+  title: string;
+};
+
 export function createGoal(payload: {
   title: string; why?: string; lane: string;
-  attention_cost: number; importance: number; due_date?: string;
-}): Promise<unknown> {
+  attention_cost: number; importance: number; due_date?: string; force?: boolean;
+}): Promise<GoalCreateResult> {
   return request("/goals", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function updateGoal(goalId: string, patch: Partial<{
+  title: string; why: string | null; lane: string;
+  attention_cost: number; importance: number; due_date: string | null;
+}>): Promise<Goal> {
+  return request(`/goals/${goalId}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteGoal(goalId: string): Promise<{ deleted: boolean }> {
+  return request(`/goals/${goalId}`, { method: "DELETE" });
 }
 
 export function activateGoal(goalId: string, force = false): Promise<unknown> {

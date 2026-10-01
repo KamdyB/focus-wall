@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   AuthError, activateGoal, addFeed, advanceOpportunity, completeTask, createGoal, createOpportunity,
-  deleteTask, dismissItem, finishFocus, getActiveSession, getBriefing, getReflection, getSettings,
-  getTask, getWall, listFeeds, listGoals, listOpportunities, listRadar, listReflections, login,
-  pinItem, quickCapture, refreshRadar, removeFeed, runDecay, saveReflection, saveSetting, startFocus,
-  updateTask,
+  deleteGoal, deleteTask, dismissItem, finishFocus, getActiveSession, getBriefing, getReflection,
+  getSettings, getTask, getWall, listFeeds, listGoals, listOpportunities, listRadar, listReflections,
+  login, pinItem, quickCapture, refreshRadar, removeFeed, runDecay, saveReflection, saveSetting,
+  startFocus, updateGoal, updateTask,
 } from "./lib/api";
 import type {
   DailyBriefing, DiscoveredItem, Goal, Opportunity, Reflection, Task, WatchFeed,
@@ -15,6 +15,7 @@ import { playChime, unlockChime } from "./lib/chime";
 type View = "wall" | "focus" | "goals" | "opps" | "more";
 type FocusState = { task: Task; secondsLeft: number; sessionId: string | null };
 type EditDraft = { what: string; minutes: number; recur: string };
+type GoalDraft = { title: string; why: string; lane: string; cost: number; due: string };
 
 const LIVE_OPP = new Set(["inbox", "applied", "interview", "offer"]);
 const KIND_LABEL: Record<string, string> = { learn: "LEARN", compete: "COMPETE", earn: "EARN", other: "OTHER" };
@@ -27,6 +28,7 @@ const FEED_SOURCES: Array<[string, string]> = [
   ["arbeitnow", "Arbeitnow — filter keyword (optional)"],
 ];
 const MINUTES_OPTS = [15, 30, 45, 60, 90, 120, 180, 240];
+const LANES = ["technical", "creative", "university", "competitions", "opportunities", "writing", "exercise", "personal"];
 
 function seedTilt(id: string): CSSProperties {
   let h = 5381;
@@ -130,6 +132,8 @@ export default function App() {
   const [goalFilter, setGoalFilter] = useState("active");
   const [gTitle, setGTitle] = useState(""); const [gWhy, setGWhy] = useState("");
   const [gLane, setGLane] = useState("technical"); const [gCost, setGCost] = useState(2); const [gDue, setGDue] = useState("");
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [goalDraft, setGoalDraft] = useState<GoalDraft | null>(null);
 
   const [opps, setOpps] = useState<Opportunity[]>([]);
   const [oppFilter, setOppFilter] = useState("all");
@@ -160,8 +164,10 @@ export default function App() {
   const finishedSessions = useRef<Set<string>>(new Set());
   const captureRef = useRef<HTMLInputElement>(null);
   const captureBusy = useRef(false);
-  const captureForce = useRef(false);      // second ADD tap after a duplicate warning logs anyway
+  const captureForce = useRef(false);
   const lastCapture = useRef("");
+  const goalForce = useRef(false);
+  const lastGoal = useRef("");
   const radarRefreshedOn = useRef("");
 
   useEffect(() => {
@@ -354,7 +360,7 @@ export default function App() {
         captureForce.current = true;
         lastCapture.current = text;
         setToast(`Already open: "${r.duplicate_of}" — press ADD again to log anyway.`);
-        return; // keep the text so the second tap is one gesture away
+        return;
       }
       captureForce.current = false;
       lastCapture.current = "";
@@ -434,13 +440,42 @@ export default function App() {
 
   const addGoal = useCallback(async () => {
     if (!gTitle.trim()) return;
+    const force = goalForce.current && gTitle.trim().toLowerCase() === lastGoal.current;
     try {
-      await createGoal({ title: gTitle.trim(), why: gWhy.trim() || undefined, lane: gLane, attention_cost: gCost, importance: gCost, due_date: gDue || undefined });
+      const r = await createGoal({ title: gTitle.trim(), why: gWhy.trim() || undefined, lane: gLane, attention_cost: gCost, importance: gCost, due_date: gDue || undefined, force });
+      if (r.created === false && r.duplicate_of) {
+        goalForce.current = true;
+        lastGoal.current = gTitle.trim().toLowerCase();
+        setToast(`"${r.duplicate_of}" already exists — tap CARVE IT again to add anyway.`);
+        return;
+      }
+      goalForce.current = false; lastGoal.current = "";
       setGTitle(""); setGWhy(""); setGDue("");
       setToast("Goal carved.");
       void loadGoals();
     } catch (e) { setToast(e instanceof Error ? e.message : "Failed to create"); }
   }, [gTitle, gWhy, gLane, gCost, gDue, loadGoals]);
+
+  const saveGoalEdit = useCallback(async (g: Goal) => {
+    if (!goalDraft) return;
+    const title = goalDraft.title.trim();
+    if (!title) { setToast("Title can't be empty."); return; }
+    try {
+      await updateGoal(g.id, { title, why: goalDraft.why.trim() || null, lane: goalDraft.lane, attention_cost: goalDraft.cost, importance: goalDraft.cost, due_date: goalDraft.due || null });
+      setEditingGoalId(null);
+      setToast("Goal saved.");
+      void loadGoals();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Save failed"); }
+  }, [goalDraft, loadGoals]);
+
+  const removeGoal = useCallback(async (g: Goal) => {
+    try {
+      await deleteGoal(g.id);
+      setEditingGoalId(null);
+      setToast("Goal removed.");
+      void loadGoals();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Delete failed"); }
+  }, [loadGoals]);
 
   const activate = useCallback(async (g: Goal, force = false) => {
     try { await activateGoal(g.id, force); setToast("Goal active."); void loadGoals(); void refresh(); }
@@ -698,15 +733,47 @@ export default function App() {
           </div>
           {goals.map((g) => (
             <div key={g.id} className="goal-row">
-              <h4>{g.title}</h4>
-              {g.why && <p>{g.why}</p>}
-              <div className="goal-meta">{g.lane} · cost {g.attention_cost} · {g.open_tasks} open{g.due_date ? ` · due ${g.due_date}` : ""}</div>
-              {g.status !== "active" && <button className="ghost-btn" title="Put this goal's tasks on the wall" onClick={() => void activate(g)}>ACTIVATE</button>}
+              {editingGoalId === g.id && goalDraft ? (
+                <div className="edit-form">
+                  <input className="field" style={{ margin: 0 }} aria-label="Goal title" value={goalDraft.title}
+                    onChange={(e) => setGoalDraft({ ...goalDraft, title: e.target.value })} />
+                  <input className="field" style={{ margin: 0 }} aria-label="Why it matters" placeholder="Why it matters"
+                    value={goalDraft.why} onChange={(e) => setGoalDraft({ ...goalDraft, why: e.target.value })} />
+                  <div className="edit-row">
+                    <select className="field" style={{ margin: 0 }} aria-label="Cost" value={goalDraft.cost} title="How much attention this goal demands"
+                      onChange={(e) => setGoalDraft({ ...goalDraft, cost: Number(e.target.value) })}>
+                      {[1, 2, 3, 4, 5].map((c) => <option key={c} value={c}>COST {c}</option>)}
+                    </select>
+                    <input className="field" style={{ margin: 0 }} type="date" aria-label="Due date" value={goalDraft.due}
+                      onChange={(e) => setGoalDraft({ ...goalDraft, due: e.target.value })} />
+                  </div>
+                  <select className="field" style={{ margin: 0 }} aria-label="Lane" value={goalDraft.lane}
+                    onChange={(e) => setGoalDraft({ ...goalDraft, lane: e.target.value })}>
+                    {LANES.map((l) => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                  <div className="edit-row">
+                    <button className="ghost-btn" style={{ height: "auto", flex: 1 }} title="Apply changes" onClick={() => void saveGoalEdit(g)}>SAVE</button>
+                    <button className="ghost-btn" style={{ height: "auto", flex: 1 }} title="Discard changes" onClick={() => setEditingGoalId(null)}>CANCEL</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h4>{g.title}</h4>
+                  {g.why && <p>{g.why}</p>}
+                  <div className="goal-meta">{g.lane} · cost {g.attention_cost} · {g.open_tasks} open{g.due_date ? ` · due ${g.due_date}` : ""}</div>
+                  <div className="chip-row" style={{ marginBottom: 0 }}>
+                    <button className="chip" title="Edit this goal"
+                      onClick={() => { setEditingGoalId(g.id); setGoalDraft({ title: g.title, why: g.why ?? "", lane: g.lane, cost: g.attention_cost, due: g.due_date ?? "" }); }}>EDIT</button>
+                    <button className="chip" title="Delete this goal — blocked while it still has tasks" onClick={() => void removeGoal(g)}>DELETE</button>
+                    {g.status !== "active" && <button className="chip" title="Put this goal's tasks on the wall" onClick={() => void activate(g)}>ACTIVATE</button>}
+                  </div>
+                </>
+              )}
             </div>
           ))}
           {goals.length === 0 && <p className="empty-note">No goals here yet.</p>}
           <div className="section-label">New goal</div>
-          <input className="field" placeholder="Title" value={gTitle} onChange={(e) => setGTitle(e.target.value)} />
+          <input className="field" placeholder="Title" value={gTitle} onChange={(e) => { setGTitle(e.target.value); goalForce.current = false; }} />
           <input className="field" placeholder="Why it matters" value={gWhy} onChange={(e) => setGWhy(e.target.value)} />
           <input className="field" type="date" value={gDue} onChange={(e) => setGDue(e.target.value)} />
           <div className="chip-row">
@@ -715,9 +782,9 @@ export default function App() {
             ))}
           </div>
           <select className="field" value={gLane} onChange={(e) => setGLane(e.target.value)}>
-            {["technical", "creative", "university", "competitions", "opportunities", "writing", "exercise", "personal"].map((l) => <option key={l} value={l}>{l}</option>)}
+            {LANES.map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
-          <button className="ghost-btn" title="Create the goal" onClick={() => void addGoal()}>CARVE IT</button>
+          <button className="ghost-btn" title="Create the goal — warns if one with this name already exists" onClick={() => void addGoal()}>CARVE IT</button>
         </main>
       )}
 
