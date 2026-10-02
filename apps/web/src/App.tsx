@@ -110,7 +110,7 @@ function NavButton({ active, hint, onGo, children }: { active: boolean; hint: st
         window.setTimeout(kill, 700);
         onGo();
       }}
-    >{children}</button>
+    ><span className="nav-icon">{children}</span></button>
   );
 }
 
@@ -620,13 +620,32 @@ export default function App() {
               {!briefing.reflection_done && <button className="chip" title="One honest line about today — lives in More" onClick={() => setView("more")}>reflect?</button>}
             </div>
           )}
-          <div style={{ display: "flex", gap: 8, margin: "4px 0 10px" }}>
+          <div className="focus-dock">
+            <div className="focus-dock-copy">
+              <span className="focus-kicker">{focus ? "FOCUSING NOW" : "FOCUS NEXT"}</span>
+              <strong>{focus ? focus.task.title : (planned[0]?.title ?? "Nothing queued")}</strong>
+              <span className="focus-sub">{focus ? "Stay here. The wall is locked until this session ends." : "Choose one block. Hold to start. Everything else can wait."}</span>
+            </div>
+            <div className="focus-dock-action">
+              <span className="focus-dock-time">
+                {focus ? fmt(focus.secondsLeft) : planned[0] ? `${String((planned[0].attention_cost ?? 2) * 15).padStart(2, "0")}:00` : "--:--"}
+              </span>
+              {focus ? (
+                <button className="ghost-btn focus-end" title="Stop now — logged as abandoned" onClick={() => void abandon()}>END</button>
+              ) : planned[0] ? (
+                <HoldButton locked={false} onEngaged={() => void engage(planned[0])} />
+              ) : (
+                <button className="ghost-btn" disabled>EMPTY</button>
+              )}
+            </div>
+          </div>
+          <div className="capture-row">
             <input ref={captureRef} className="field" style={{ margin: 0 }}
               title="Bare capture = 45 min (a real block). !25 = 25 minutes (under 30 = small win). !t = due today. !daily !weekly !monthly = repeats. Duplicate titles ask first."
-              placeholder="Capture — !t today · !25 for 25 min · !daily repeats"
+              placeholder="Capture a block…  !t today · !25 for 25 min · !daily"
               value={qText} onChange={(e) => setQText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void quickAdd(); }} />
-            <button className="ghost-btn" style={{ height: "auto" }} disabled={qBusy} title="Add the line above (or just press Enter)" onClick={() => void quickAdd()}>ADD</button>
+            <button className="ghost-btn capture-add" disabled={qBusy} title="Add the line above (or just press Enter)" onClick={() => void quickAdd()}>ADD</button>
           </div>
           {sections.map(([label, items]) => (
             <section key={label}>
@@ -913,7 +932,7 @@ export default function App() {
 
       <nav className="navbar">
         {(["wall", "focus", "goals", "opps", "more"] as View[]).map((v) => (
-          <NavButton key={v} active={view === v} hint={NAV_HINTS[v]} onGo={() => setView(v)}>{GLYPHS[v]}</NavButton>
+          <NavButton key={v} active={view === v} hint={NAV_HINTS[v]} onGo={() => setView(v)}>{GLYPHS[v]}<span className="nav-label">{v === "opps" ? "RADAR" : v.toUpperCase()}</span></NavButton>
         ))}
       </nav>
 
