@@ -846,3 +846,112 @@ body::before{opacity:.13!important}
   .focus-whisper{font-size:13px}
   .focus-count{font-size:clamp(56px,18vw,82px)}
 }
+
+
+/* READABILITY + FRIENDLY TYPE — final visual pass. */
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap");
+
+/* One approachable family throughout; the interface should feel human, not corporate. */
+html,body,button,input,select,textarea{
+  font-family:"Nunito",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+body{font-weight:500;letter-spacing:.005em}
+.wordmark,.metrics,.tray-title,.focus-kicker,.focus-lock-note,.nav-label,.hold-label,.section-label{
+  font-family:"Nunito",system-ui,sans-serif;
+}
+.wordmark{font-weight:800;letter-spacing:.17em}
+.metrics{font-weight:700}
+.section-label{font-weight:800;letter-spacing:.18em}
+.nav-label{font-weight:800;letter-spacing:.08em}
+.focus-kicker,.focus-lock-note{font-weight:800;letter-spacing:.14em}
+
+/* Blue pin: always blue, but with enough luminance/value against each theme. */
+.pin{
+  background:radial-gradient(circle at 31% 27%,#dff1ff 0 9%,#69b9ff 10% 25%,#1976d2 27% 68%,#0b4f91 70% 100%)!important;
+  box-shadow:0 3px 3px rgba(19,38,55,.34),inset 0 -2px 2px rgba(5,46,91,.45),0 0 0 2px rgba(226,243,255,.5)!important;
+}
+[data-theme="dark"] .pin{
+  background:radial-gradient(circle at 31% 27%,#f1f9ff 0 9%,#9bd5ff 10% 25%,#43a5f5 27% 68%,#1265ad 70% 100%)!important;
+  box-shadow:0 3px 4px rgba(0,0,0,.5),inset 0 -2px 2px rgba(2,36,68,.5),0 0 0 2px rgba(119,190,244,.24)!important;
+}
+
+/* Explicit contrast pairing: text colour follows the surface, never the wallpaper underneath. */
+.card-tilt,.goal-row,.panel,.focus-dock,.tray-pill{
+  color:var(--ink);
+}
+.card-tilt .muted,.goal-row .muted,.panel .muted,
+.card-tilt .subtle,.goal-row .subtle,.panel .subtle{color:var(--ink-soft)}
+[data-theme="dark"] .card-tilt,
+[data-theme="dark"] .goal-row,
+[data-theme="dark"] .panel,
+[data-theme="dark"] .focus-dock,
+[data-theme="dark"] .tray-pill{color:#f2f7fb}
+
+/* Light theme: mounted objects are dark-text surfaces. */
+html:not([data-theme="dark"]) .card-tilt,
+html:not([data-theme="dark"]) .goal-row,
+html:not([data-theme="dark"]) .panel,
+html:not([data-theme="dark"]) .focus-dock{
+  color:#10243a;
+}
+html:not([data-theme="dark"]) .card-tilt .muted,
+html:not([data-theme="dark"]) .goal-row .muted,
+html:not([data-theme="dark"]) .panel .muted,
+html:not([data-theme="dark"]) .focus-dock .focus-sub{color:#40566e}
+
+/* Dark theme: dark mounted objects get light text. */
+[data-theme="dark"] .card-tilt strong,
+[data-theme="dark"] .goal-row strong,
+[data-theme="dark"] .panel strong,
+[data-theme="dark"] .focus-dock strong{color:#f5f9fc}
+[data-theme="dark"] .card-tilt p,
+[data-theme="dark"] .goal-row p,
+[data-theme="dark"] .panel p,
+[data-theme="dark"] .focus-dock .focus-sub{color:#bcd0e2}
+
+/* Inputs need their own readable surface in both modes. */
+.field{
+  background:var(--panel)!important;
+  color:var(--ink)!important;
+  border-color:var(--edge)!important;
+}
+.field::placeholder{color:var(--ink-soft)!important;opacity:1}
+[data-theme="dark"] .field{
+  background:#102c47!important;
+  color:#f2f7fb!important;
+  border-color:rgba(173,211,239,.24)!important;
+}
+[data-theme="dark"] .field::placeholder{color:#a9bfd2!important}
+
+/* Buttons: never use pale text on a pale button. */
+.ghost-btn,.hold-btn,.theme-btn,.chip,.tray-pill{
+  color:var(--ink);
+}
+[data-theme="dark"] .ghost-btn,
+[data-theme="dark"] .hold-btn,
+[data-theme="dark"] .theme-btn,
+[data-theme="dark"] .chip,
+[data-theme="dark"] .tray-pill{color:#f0f6fb}
+.ghost-btn:hover,.theme-btn:hover{color:var(--accent)}
+.hold-btn{color:#153c61}
+[data-theme="dark"] .hold-btn{color:#eef7ff}
+
+/* Header is over the blue stone wall: keep its text light in both modes. */
+.wordmark,.metrics,.section-label{color:#f4f9ff!important}
+.metrics span{color:#e7f2fb!important}
+.section-label::after{background:rgba(235,246,255,.55)!important}
+
+/* Focus screen is intentionally dark: light type belongs on it. */
+.focus-screen .focus-title,.focus-screen .focus-count{color:#f5f9fc}
+.focus-screen .focus-whisper{color:#c4d8e9}
+.focus-screen .focus-footer{color:#a9c0d4}
+[data-theme="dark"] .focus-screen .focus-title,
+[data-theme="dark"] .focus-screen .focus-count{color:#f7fbff}
+
+/* Blue lock accent stays blue in both themes. */
+.focus-lock-note,.focus-kicker{color:#4aa7f7!important}
+[data-theme="dark"] .focus-lock-note,.focus-kicker{color:#7bc7ff!important}
+
+/* Accessibility: don't let the lock state become unreadably faint. */
+.nav-locked{opacity:.48!important}
+[data-theme="dark"] .nav-locked{opacity:.5!important}
