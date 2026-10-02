@@ -200,7 +200,7 @@ export default function App() {
     const wipe = wipeRef.current;
     if (!wipe || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { apply(); return; }
     wipeBusy.current = false;
-    wipe.style.setProperty("--wipe-color", next === "dark" ? "#0B0C0E" : "#F7F5F0");
+    wipe.style.setProperty("--wipe-color", next === "dark" ? "#08182D" : "#D7E6F5");
     wipe.classList.add("running");
     const fallback = window.setTimeout(apply, 950);
     wipe.addEventListener("animationend", () => { window.clearTimeout(fallback); apply(); }, { once: true });
