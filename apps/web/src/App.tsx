@@ -115,11 +115,11 @@ function NavButton({ active, hint, onGo, children }: { active: boolean; hint: st
 }
 
 const GLYPHS: Record<View, ReactNode> = {
-  wall: <svg className="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 4.5l8 7M6.5 10.5V19h11v-8.5M10 19v-5h4v5" /></svg>,
-  focus: <svg className="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path className="i-hand" d="M12 12V7.5M12 12l3 2" /></svg>,
-  goals: <svg className="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4.2" /><circle className="i-dot" cx="12" cy="12" r="1.6" /></svg>,
-  opps: <svg className="i-inbox" viewBox="0 0 24 24"><path d="M4 13.5V19h16v-5.5M4 13.5 6.5 5.5h11L20 13.5M4 13.5h5a3 3 0 0 0 6 0h5" /></svg>,
-  more: <svg className="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2.1 2.1M15.9 15.9 18 18M18 6l-2.1 2.1M8.1 15.9 6 18" /></svg>,
+  wall: <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 10h16M4 15h16M10 5v5M16 10v5M9 15v4" /></svg>,
+  focus: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></svg>,
+  goals: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.2" /><circle cx="12" cy="12" r="1.3" /></svg>,
+  opps: <svg viewBox="0 0 24 24"><path d="M4 7.5h16v11H4zM4 12h5l1.5 2h3l1.5-2h5M7 7.5l1-3h8l1 3" /></svg>,
+  more: <svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" /><circle cx="12" cy="12" r="3.2" /></svg>,
 };
 
 export default function App() {
