@@ -90,13 +90,15 @@ const NAV_HINTS: Record<View, string> = {
   more: "More — theme, daily reflection, utility",
 };
 
-function NavButton({ active, hint, onGo, children }: { active: boolean; hint: string; onGo: () => void; children: ReactNode }) {
+function NavButton({ active, locked, hint, onGo, children }: { active: boolean; locked?: boolean; hint: string; onGo: () => void; children: ReactNode }) {
   return (
     <button
-      className={`nav-btn${active ? " active" : ""}`}
+      className={`nav-btn${active ? " active" : ""}${locked ? " nav-locked" : ""}`}
       aria-label={hint}
       title={hint}
       aria-current={active ? "page" : undefined}
+      aria-disabled={locked || undefined}
+      disabled={locked}
       onClick={(e) => {
         const b = e.currentTarget;
         const r = b.getBoundingClientRect();
@@ -733,8 +735,11 @@ export default function App() {
         <main className="focus-screen">
           {focus ? (
             <>
+              <div className="focus-lock-note"><span className="focus-pin-mark" aria-hidden="true" /> THE WALL IS CLOSED</div>
+              <p className="focus-whisper">One thing. Stay with it.</p>
               <h2 className="focus-title">{focus.task.title}</h2>
               <div className="focus-count">{fmt(focus.secondsLeft)}</div>
+              <p className="focus-footer">You don't need to remember anything else right now.</p>
               <button className="ghost-btn" title="Stop now — logged as abandoned, still honest data" onClick={() => void abandon()}>END EARLY</button>
             </>
           ) : (
@@ -931,9 +936,14 @@ export default function App() {
       )}
 
       <nav className="navbar">
-        {(["wall", "focus", "goals", "opps", "more"] as View[]).map((v) => (
-          <NavButton key={v} active={view === v} hint={NAV_HINTS[v]} onGo={() => setView(v)}>{GLYPHS[v]}<span className="nav-label">{v === "opps" ? "RADAR" : v.toUpperCase()}</span></NavButton>
-        ))}
+        {(["wall", "focus", "goals", "opps", "more"] as View[]).map((v) => {
+          const navLocked = Boolean(focus && v !== "focus");
+          return (
+            <NavButton key={v} active={view === v} locked={navLocked} hint={navLocked ? "Locked in — finish the block before leaving focus." : NAV_HINTS[v]} onGo={() => setView(v)}>
+              {GLYPHS[v]}<span className="nav-label">{v === "opps" ? "RADAR" : v.toUpperCase()}</span>
+            </NavButton>
+          );
+        })}
       </nav>
 
       {toast && <div className="toast">{toast}</div>}
