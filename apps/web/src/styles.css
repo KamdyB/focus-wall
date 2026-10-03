@@ -1115,3 +1115,27 @@ body::after{
   .focus-dock{border-radius:15px}
   .navbar{border-radius:18px!important}
 }
+
+/* FINAL SOFT NIGHT ROOM: clean, serious, human. */
+:root{--soft-radius:16px;--surface-shadow:0 10px 28px rgba(7,29,49,.16)}
+[data-theme="dark"]{--surface-shadow:0 14px 34px rgba(0,0,0,.28)}
+html,body,button,input,textarea,select{font-family:"Fredoka",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{font-weight:400;letter-spacing:0;-webkit-font-smoothing:antialiased}
+.wordmark{font-weight:700}.metrics{font-weight:500}.section-label{font-weight:600}
+.card-tilt,.focus-dock,.briefing,.panel,.goal-row,.refl-item,.tray,.field,.ghost-btn,.hold-btn,.chip{border-radius:var(--soft-radius)}
+.card-tilt{border-width:1px;box-shadow:var(--surface-shadow)}
+.task-card .card-tilt{border-radius:18px;clip-path:none;transition:transform .18s ease,box-shadow .18s ease}
+.task-card:nth-child(3n+1) .card-tilt{border-radius:17px 20px 18px 15px}
+.task-card:nth-child(3n+2) .card-tilt{border-radius:20px 16px 18px 19px}
+.task-card:nth-child(3n) .card-tilt{border-radius:15px 19px 17px 20px}
+.focus-dock{background:rgba(12,39,65,.88);border-color:rgba(156,198,229,.2);box-shadow:0 12px 30px rgba(4,22,38,.2)}
+[data-theme="dark"] .focus-dock{background:rgba(13,36,59,.9)}
+.briefing{border-radius:14px}.field{border-radius:13px}.ghost-btn,.hold-btn{border-radius:12px}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(75% 55% at 50% 35%,transparent 45%,rgba(8,27,45,.12) 100%),linear-gradient(180deg,rgba(255,255,255,.05),transparent 28%,rgba(6,24,40,.08))}
+[data-theme="dark"] body::after{background:radial-gradient(75% 55% at 50% 35%,transparent 42%,rgba(0,0,0,.28) 100%),linear-gradient(180deg,rgba(113,178,224,.035),transparent 30%,rgba(0,0,0,.12))}
+.pin{border-radius:50%!important;background:radial-gradient(circle at 31% 27%,#e4f4ff 0 9%,#75c3ff 10% 25%,#237fd8 27% 68%,#0d579d 70% 100%)!important}
+.focus-lock-note{letter-spacing:.12em}.focus-whisper{color:#bfd5e7!important}.focus-footer{color:#9eb8cd!important}
+.nav-locked{opacity:.38!important;filter:none!important}
+.navbar{background:rgba(7,31,54,.78)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(3,20,36,.22)!important}
+.nav-btn.active{background:#2378ca!important}
+@media(max-width:620px){.card-tilt{border-radius:15px}.focus-dock{border-radius:15px}.navbar{border-radius:18px!important}}
