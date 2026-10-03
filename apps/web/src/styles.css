@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap");
 
 /* ============ The Bedrock / The Shore — dual-tone ============ */
 :root {
@@ -958,7 +958,6 @@ html:not([data-theme="dark"]) .focus-dock .focus-sub{color:#40566e}
 
 
 /* CLEAN + BUBBLY — tidy information architecture without turning Focus Wall into a corporate dashboard. */
-@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap");
 html,body,button,input,select,textarea{
   font-family:"Fredoka",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 }
@@ -1029,3 +1028,90 @@ body{font-weight:400;letter-spacing:0}
 /* Friendlier little labels without turning the UI into sticker soup. */
 .focus-whisper{font-family:"Fredoka",system-ui,sans-serif;font-style:normal;font-weight:500}
 .empty-note,.focus-sub,.focus-footer{font-family:"Fredoka",system-ui,sans-serif}
+
+
+/* FINAL SOFTENING — calm night-room, not dashboard, not toy box. */
+:root{
+  --soft-radius:16px;
+  --surface-shadow:0 10px 28px rgba(7,29,49,.16);
+}
+[data-theme="dark"]{
+  --surface-shadow:0 14px 34px rgba(0,0,0,.28);
+}
+body{
+  font-family:"Fredoka",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-weight:400;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,textarea,select{font-family:inherit}
+.wordmark{font-weight:700}
+.metrics{font-weight:500}
+.section-label{font-weight:600}
+.card-tilt,.focus-dock,.briefing,.panel,.goal-row,.refl-item,.tray,.field,.ghost-btn,.hold-btn,.chip{
+  border-radius:var(--soft-radius);
+}
+.card-tilt{
+  border-width:1px;
+  box-shadow:var(--surface-shadow);
+}
+.focus-dock{
+  background:rgba(12,39,65,.88);
+  border-color:rgba(156,198,229,.2);
+  box-shadow:0 12px 30px rgba(4,22,38,.2);
+}
+[data-theme="dark"] .focus-dock{background:rgba(13,36,59,.9)}
+.briefing{border-radius:14px}
+.field{border-radius:13px}
+.ghost-btn,.hold-btn{border-radius:12px}
+
+/* Less blocky stone: soften the whole field with atmospheric edges and a quiet vignette. */
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:-1;
+  background:
+    radial-gradient(75% 55% at 50% 35%,transparent 45%,rgba(8,27,45,.12) 100%),
+    linear-gradient(180deg,rgba(255,255,255,.05),transparent 28%,rgba(6,24,40,.08));
+}
+[data-theme="dark"] body::after{
+  background:
+    radial-gradient(75% 55% at 50% 35%,transparent 42%,rgba(0,0,0,.28) 100%),
+    linear-gradient(180deg,rgba(113,178,224,.035),transparent 30%,rgba(0,0,0,.12));
+}
+
+/* Make mounted notes feel gently rounded, not like rigid UI tiles. */
+.task-card .card-tilt{
+  border-radius:18px;
+  clip-path:none;
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+.task-card:nth-child(3n+1) .card-tilt{border-radius:17px 20px 18px 15px}
+.task-card:nth-child(3n+2) .card-tilt{border-radius:20px 16px 18px 19px}
+.task-card:nth-child(3n) .card-tilt{border-radius:15px 19px 17px 20px}
+
+/* Blue pins remain the tiny physical commitment cue. */
+.pin{
+  border-radius:50%!important;
+}
+
+/* Softer focus language: firm, but never punitive. */
+.focus-lock-note{letter-spacing:.12em}
+.focus-whisper{color:#bfd5e7!important}
+.focus-footer{color:#9eb8cd!important}
+.nav-locked{opacity:.38!important;filter:none!important}
+
+/* Keep the bottom dock visually subordinate to the wall. */
+.navbar{
+  background:rgba(7,31,54,.78)!important;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  box-shadow:0 12px 30px rgba(3,20,36,.22)!important;
+}
+.nav-btn.active{background:#2378ca!important}
+@media(max-width:620px){
+  .card-tilt{border-radius:15px}
+  .focus-dock{border-radius:15px}
+  .navbar{border-radius:18px!important}
+}
