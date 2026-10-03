@@ -955,3 +955,77 @@ html:not([data-theme="dark"]) .focus-dock .focus-sub{color:#40566e}
 /* Accessibility: don't let the lock state become unreadably faint. */
 .nav-locked{opacity:.48!important}
 [data-theme="dark"] .nav-locked{opacity:.5!important}
+
+
+/* CLEAN + BUBBLY — tidy information architecture without turning Focus Wall into a corporate dashboard. */
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap");
+html,body,button,input,select,textarea{
+  font-family:"Fredoka",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+body{font-weight:400;letter-spacing:0}
+.wordmark,.metrics,.tray-title,.focus-kicker,.focus-lock-note,.nav-label,.hold-label,.section-label{
+  font-family:"Fredoka",system-ui,sans-serif;
+}
+.wordmark{font-weight:700;letter-spacing:.16em}
+.metrics{font-weight:600}
+.section-label{font-weight:600;letter-spacing:.13em}
+.nav-label{font-weight:600;letter-spacing:.06em}
+.focus-kicker,.focus-lock-note{font-weight:600;letter-spacing:.11em}
+.field,.field::placeholder{font-family:"Fredoka",system-ui,sans-serif}
+
+/* The wall is the navigation context — don't introduce a persistent sidebar. */
+.wall-viewport{max-width:920px;margin-inline:auto}
+.app-header{max-width:920px;margin-inline:auto}
+
+/* Make the information hierarchy calmer: fewer borders, clearer surfaces. */
+.briefing{
+  border:1px solid rgba(143,185,219,.28);
+  background:rgba(9,34,58,.62);
+  box-shadow:0 8px 24px rgba(5,25,44,.12);
+}
+.focus-dock{
+  border:1px solid rgba(139,184,219,.3);
+  box-shadow:0 12px 30px rgba(5,25,44,.2);
+}
+.capture-row .field{
+  border-radius:12px;
+  min-height:46px;
+}
+.capture-add{
+  border-radius:12px;
+  min-height:46px;
+}
+
+/* Bottom nav is deliberately a compact dock, not five competing cards. */
+.navbar{
+  max-width:560px;
+  left:50%;
+  right:auto!important;
+  transform:translateX(-50%);
+  width:calc(100% - 24px);
+  border-radius:20px!important;
+  padding:4px!important;
+}
+.nav-btn{
+  border-radius:14px!important;
+  min-width:0;
+  flex:1;
+  transition:background .18s ease,transform .18s ease,color .18s ease;
+}
+.nav-btn:not(.active):hover{transform:translateY(-1px);color:#dceeff}
+.nav-btn.active{transform:none}
+.nav-btn svg{stroke-width:1.7}
+@media(max-width:620px){
+  .navbar{width:calc(100% - 16px)!important;max-width:none}
+  .wall-viewport{max-width:none}
+  .app-header{max-width:none}
+}
+
+/* Blue pins stay blue. */
+.pin{
+  background:radial-gradient(circle at 31% 27%,#e4f4ff 0 9%,#75c3ff 10% 25%,#237fd8 27% 68%,#0d579d 70% 100%)!important;
+}
+
+/* Friendlier little labels without turning the UI into sticker soup. */
+.focus-whisper{font-family:"Fredoka",system-ui,sans-serif;font-style:normal;font-weight:500}
+.empty-note,.focus-sub,.focus-footer{font-family:"Fredoka",system-ui,sans-serif}
