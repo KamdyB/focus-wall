@@ -1139,3 +1139,30 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;bac
 .navbar{background:rgba(7,31,54,.78)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(3,20,36,.22)!important}
 .nav-btn.active{background:#2378ca!important}
 @media(max-width:620px){.card-tilt{border-radius:15px}.focus-dock{border-radius:15px}.navbar{border-radius:18px!important}}
+
+/* FIX: bottom navigation must be anchored to the viewport, not participate in page flow. */
+.navbar{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:14px!important;
+  top:auto!important;
+  transform:translateX(-50%)!important;
+  width:min(560px,calc(100vw - 24px))!important;
+  z-index:100!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:stretch!important;
+  box-sizing:border-box!important;
+}
+@media(max-width:620px){
+  .navbar{
+    left:8px!important;
+    right:8px!important;
+    bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;
+    transform:none!important;
+    width:auto!important;
+    max-width:none!important;
+  }
+  .wall-viewport{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}
+}
