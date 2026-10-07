@@ -1,6 +1,6 @@
 import type {
-  DailyBriefing, DiscoveredItem, Goal, Opportunity, RadarRefresh, Reflection,
-  Task, WallToday, WatchFeed,
+  AiInsight, DailyBriefing, DiscoveredItem, Goal, Opportunity, ProfileData,
+  RadarRefresh, Reflection, Task, WallToday, WatchFeed,
 } from "../types";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -100,7 +100,6 @@ export type CaptureResult = {
   duplicate_of: string | null;
   id: string; title: string; minutes: number; due_today: boolean;
 };
-
 export function quickCapture(text: string, force = false): Promise<CaptureResult> {
   return request("/quick-capture", { method: "POST", body: JSON.stringify({ text, force }) });
 }
@@ -124,7 +123,6 @@ export type ActiveSession = {
   id: string; task_id: string; planned_minutes: number;
   started_at: string; remaining_seconds: number;
 };
-
 export function getActiveSession(): Promise<ActiveSession | null> {
   return request<ActiveSession | null>("/focus-sessions/active");
 }
@@ -140,7 +138,6 @@ export type GoalCreateResult = {
   id: string;
   title: string;
 };
-
 export function createGoal(payload: {
   title: string; why?: string; lane: string;
   attention_cost: number; importance: number; due_date?: string; force?: boolean;
@@ -167,20 +164,16 @@ export type OpportunityInput = {
   title: string; kind: string; organisation?: string;
   url?: string; deadline?: string; notes?: string;
 };
-
 export function listOpportunities(status?: string): Promise<Opportunity[]> {
   const q = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
   return request<Opportunity[]>(`/opportunities${q}`);
 }
-
 export function createOpportunity(payload: OpportunityInput): Promise<unknown> {
   return request("/opportunities", { method: "POST", body: JSON.stringify(payload) });
 }
-
 export function advanceOpportunity(id: string, body: { to: string; note?: string }): Promise<unknown> {
   return request(`/opportunities/${id}/advance`, { method: "POST", body: JSON.stringify(body) });
 }
-
 export function getOpportunityEvents(
   id: string,
 ): Promise<Array<{ from_status: string | null; to_status: string; note: string | null; created_at: string }>> {
@@ -201,7 +194,7 @@ export function removeFeed(feedId: string): Promise<{ deleted: boolean }> {
   return request(`/radar/feeds/${feedId}`, { method: "DELETE" });
 }
 export function refreshRadar(): Promise<RadarRefresh> {
-  return request("/radar/refresh", { method: "POST" });
+  return request<RadarRefresh>("/radar/refresh", { method: "POST" });
 }
 export function pinItem(id: string): Promise<unknown> {
   return request(`/radar/${id}/pin`, { method: "POST" });
@@ -220,7 +213,6 @@ export function createLog(payload: {
 export function getSettings(): Promise<Record<string, string>> {
   return request<Record<string, string>>("/settings");
 }
-
 export function saveSetting(key: string, value: string): Promise<unknown> {
   return request("/settings", { method: "PUT", body: JSON.stringify({ key, value }) });
 }
@@ -238,4 +230,18 @@ export function saveReflection(body: string, mood: string | null): Promise<Refle
 }
 export function listReflections(limit = 7): Promise<Array<{ date: string; body: string; mood: string | null }>> {
   return request(`/daily/reflections?limit=${limit}`);
+}
+
+/* ---- AI triage (Groq) ---- */
+export function getAiProfile(): Promise<ProfileData> {
+  return request<{ data: ProfileData }>("/ai/profile").then((r) => r.data ?? {});
+}
+export function saveAiProfile(data: ProfileData): Promise<ProfileData> {
+  return request("/ai/profile", { method: "PUT", body: JSON.stringify({ data }) });
+}
+export function triageOpportunity(id: string, text?: string): Promise<AiInsight> {
+  return request<AiInsight>(`/ai/${id}/triage`, { method: "POST", body: JSON.stringify({ text: text || null }) });
+}
+export function listInsights(): Promise<Record<string, AiInsight>> {
+  return request<Record<string, AiInsight>>("/ai/insights");
 }

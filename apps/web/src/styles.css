@@ -389,3 +389,38 @@ button.pin {
   padding: 0;
   cursor: pointer;
 }
+
+/* ---- AI triage panel ---- */
+.ai-panel {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 12px;
+  background: rgba(128, 128, 128, 0.06);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ai-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ai-badge {
+  font-weight: 700; font-size: 11px; letter-spacing: 0.08em;
+  padding: 3px 10px; border-radius: 999px; color: #fff;
+}
+.ai-chase { background: #3e7d5a; }
+.ai-maybe { background: #b98a3c; }
+.ai-skip { background: #7a7a7a; }
+.ai-expired { background: #a35445; }
+.ai-score { font-weight: 600; }
+.ai-deadline { opacity: 0.75; font-size: 12px; }
+.ai-read { margin-top: 6px; opacity: 0.7; font-style: italic; font-size: 12px; }
+.ai-label {
+  margin-top: 10px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.14em; opacity: 0.55;
+}
+.ai-panel ul { margin: 4px 0 0; padding-left: 18px; }
+.ai-panel p { margin: 4px 0 0; }
+.ai-action {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 5px 0; border-bottom: 1px dashed rgba(128, 128, 128, 0.18);
+}
+.ai-action:last-of-type { border-bottom: none; }
+.ai-meta { margin-top: 8px; font-size: 11px; opacity: 0.5; }

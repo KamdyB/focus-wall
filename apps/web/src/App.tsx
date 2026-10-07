@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   AuthError, activateGoal, addFeed, advanceOpportunity, completeTask, createGoal, createOpportunity,
-  deleteGoal, deleteTask, dismissItem, finishFocus, getActiveSession, getBriefing, getReflection,
-  getSettings, getTask, getWall, listFeeds, listGoals, listOpportunities, listRadar, listReflections,
-  login, pinItem, quickCapture, refreshRadar, removeFeed, runDecay, saveReflection, saveSetting,
-  startFocus, updateGoal, updateTask,
+  deleteGoal, deleteTask, dismissItem, finishFocus, getActiveSession, getAiProfile, getBriefing,
+  getReflection, getSettings, getTask, getWall, listFeeds, listGoals, listInsights,
+  listOpportunities, listRadar, listReflections, login, pinItem, quickCapture, refreshRadar,
+  removeFeed, runDecay, saveAiProfile, saveReflection, saveSetting, startFocus, triageOpportunity,
+  updateGoal, updateTask,
 } from "./lib/api";
 import type {
-  DailyBriefing, DiscoveredItem, Goal, Opportunity, Reflection, Task, WatchFeed,
+  AiInsight, DailyBriefing, DiscoveredItem, Goal, Opportunity, ProfileData,
+  Reflection, Task, WatchFeed,
 } from "./types";
 import { playChime, unlockChime } from "./lib/chime";
 
@@ -53,7 +55,6 @@ function HoldButton({ locked, onEngaged }: { locked: boolean; onEngaged: () => v
   const [filling, setFilling] = useState(false);
   const timer = useRef<number | null>(null);
   const fired = useRef(false);
-
   const start = useCallback(() => {
     unlockChime();
     if (locked || timer.current !== null) return;
@@ -66,7 +67,6 @@ function HoldButton({ locked, onEngaged }: { locked: boolean; onEngaged: () => v
     if (!fired.current) setFilling(false);
   }, []);
   useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
-
   return (
     <button
       className={`hold-btn${filling ? " filling" : ""}${locked ? " locked" : ""}`}
@@ -87,16 +87,18 @@ const NAV_HINTS: Record<View, string> = {
   focus: "Focus — the running session",
   goals: "Goals — the why behind your blocks",
   opps: "Opportunities — radar, feeds and pipeline",
-  more: "More — theme, daily reflection, utility",
+  more: "More — theme, daily reflection, profile, utility",
 };
 
-function NavButton({ active, hint, onGo, children }: { active: boolean; hint: string; onGo: () => void; children: ReactNode }) {
+function NavButton({ active, locked, hint, onGo, children }: { active: boolean; locked?: boolean; hint: string; onGo: () => void; children: ReactNode }) {
   return (
     <button
-      className={`nav-btn${active ? " active" : ""}`}
+      className={`nav-btn${active ? " active" : ""}${locked ? " nav-locked" : ""}`}
       aria-label={hint}
       title={hint}
       aria-current={active ? "page" : undefined}
+      aria-disabled={locked || undefined}
+      disabled={locked}
       onClick={(e) => {
         const b = e.currentTarget;
         const r = b.getBoundingClientRect();
@@ -110,16 +112,16 @@ function NavButton({ active, hint, onGo, children }: { active: boolean; hint: st
         window.setTimeout(kill, 700);
         onGo();
       }}
-    >{children}</button>
+    ><span className="nav-icon">{children}</span></button>
   );
 }
 
 const GLYPHS: Record<View, ReactNode> = {
-  wall: <svg className="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 4.5l8 7M6.5 10.5V19h11v-8.5M10 19v-5h4v5" /></svg>,
-  focus: <svg className="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path className="i-hand" d="M12 12V7.5M12 12l3 2" /></svg>,
-  goals: <svg className="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4.2" /><circle className="i-dot" cx="12" cy="12" r="1.6" /></svg>,
-  opps: <svg className="i-inbox" viewBox="0 0 24 24"><path d="M4 13.5V19h16v-5.5M4 13.5 6.5 5.5h11L20 13.5M4 13.5h5a3 3 0 0 0 6 0h5" /></svg>,
-  more: <svg className="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2.1 2.1M15.9 15.9 18 18M18 6l-2.1 2.1M8.1 15.9 6 18" /></svg>,
+  wall: <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 10h16M4 15h16M10 5v5M16 10v5M9 15v4" /></svg>,
+  focus: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></svg>,
+  goals: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.2" /><circle cx="12" cy="12" r="1.3" /></svg>,
+  opps: <svg viewBox="0 0 24 24"><path d="M4 7.5h16v11H4zM4 12h5l1.5 2h3l1.5-2h5M7 7.5l1-3h8l1 3" /></svg>,
+  more: <svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" /><circle cx="12" cy="12" r="3.2" /></svg>,
 };
 
 export default function App() {
@@ -134,28 +136,28 @@ export default function App() {
   const [gLane, setGLane] = useState("technical"); const [gCost, setGCost] = useState(2); const [gDue, setGDue] = useState("");
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [goalDraft, setGoalDraft] = useState<GoalDraft | null>(null);
-
   const [opps, setOpps] = useState<Opportunity[]>([]);
   const [oppFilter, setOppFilter] = useState("all");
   const [oTitle, setOTitle] = useState(""); const [oOrg, setOOrg] = useState(""); const [oUrl, setOUrl] = useState("");
   const [oKind, setOKind] = useState("learn"); const [oDeadline, setODeadline] = useState("");
-
   const [needsLogin, setNeedsLogin] = useState(false);
   const [loginPw, setLoginPw] = useState(""); const [loginErr, setLoginErr] = useState("");
   const [qText, setQText] = useState(""); const [qBusy, setQBusy] = useState(false);
-
   const [menuId, setMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
-
   const [briefing, setBriefing] = useState<DailyBriefing | null>(null);
   const [reflText, setReflText] = useState(""); const [reflMood, setReflMood] = useState<string | null>(null);
   const [reflList, setReflList] = useState<Array<{ date: string; body: string; mood: string | null }>>([]);
   const [reflSaved, setReflSaved] = useState(false);
-
   const [feeds, setFeeds] = useState<WatchFeed[]>([]);
   const [radar, setRadar] = useState<DiscoveredItem[]>([]);
   const [fSource, setFSource] = useState("remotive"); const [fParam, setFParam] = useState(""); const [fLabel, setFLabel] = useState("");
+  const [insights, setInsights] = useState<Record<string, AiInsight>>({});
+  const [triagingId, setTriagingId] = useState<string | null>(null);
+  const [profEdu, setProfEdu] = useState(""); const [profInterests, setProfInterests] = useState("");
+  const [profSkills, setProfSkills] = useState(""); const [profExp, setProfExp] = useState("");
+  const [profConstraints, setProfConstraints] = useState("");
 
   const wipeRef = useRef<HTMLDivElement>(null);
   const wipeBusy = useRef(false);
@@ -166,6 +168,8 @@ export default function App() {
   const captureBusy = useRef(false);
   const captureForce = useRef(false);
   const lastCapture = useRef("");
+  const aiAddForce = useRef(false);
+  const lastAiAdd = useRef("");
   const goalForce = useRef(false);
   const lastGoal = useRef("");
   const radarRefreshedOn = useRef("");
@@ -200,7 +204,7 @@ export default function App() {
     const wipe = wipeRef.current;
     if (!wipe || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { apply(); return; }
     wipeBusy.current = false;
-    wipe.style.setProperty("--wipe-color", next === "dark" ? "#0B0C0E" : "#F7F5F0");
+    wipe.style.setProperty("--wipe-color", next === "dark" ? "#08182D" : "#D7E6F5");
     wipe.classList.add("running");
     const fallback = window.setTimeout(apply, 950);
     wipe.addEventListener("animationend", () => { window.clearTimeout(fallback); apply(); }, { once: true });
@@ -275,11 +279,16 @@ export default function App() {
     try { setFeeds(await listFeeds()); } catch { /* best-effort */ }
   }, []);
 
+  const loadInsights = useCallback(async () => {
+    try { setInsights(await listInsights()); } catch { /* best-effort */ }
+  }, []);
+
   useEffect(() => {
     if (view !== "opps") return;
     void loadOpps();
     void loadFeeds();
     void loadRadar();
+    void loadInsights();
     const today = new Date().toISOString().slice(0, 10);
     if (radarRefreshedOn.current !== today && localStorage.getItem("fw-radar-day") !== today) {
       radarRefreshedOn.current = today;
@@ -291,7 +300,7 @@ export default function App() {
         } catch { /* best-effort */ }
       })();
     }
-  }, [view, loadOpps, loadFeeds, loadRadar]);
+  }, [view, loadOpps, loadFeeds, loadRadar, loadInsights]);
 
   useEffect(() => {
     if (view !== "more") return;
@@ -302,6 +311,12 @@ export default function App() {
         setReflSaved(!!r);
         setReflList(await listReflections(7));
       } catch { /* best-effort */ }
+      try {
+        const p: ProfileData = await getAiProfile();
+        const s = (v: unknown) => (typeof v === "string" ? v : Array.isArray(v) ? v.join(", ") : "");
+        setProfEdu(s(p.education)); setProfInterests(s(p.interests)); setProfSkills(s(p.skills));
+        setProfExp(s(p.experience)); setProfConstraints(s(p.constraints));
+      } catch { /* best-effort — profile stays local until first save */ }
     })();
   }, [view]);
 
@@ -504,6 +519,46 @@ export default function App() {
     } catch (e) { setToast(e instanceof Error ? e.message : "Move rejected"); }
   }, [loadOpps]);
 
+  const runTriage = useCallback(async (o: Opportunity) => {
+    if (triagingId) return;
+    setTriagingId(o.id);
+    try {
+      const ins = await triageOpportunity(o.id);
+      setInsights((prev) => ({ ...prev, [o.id]: ins }));
+      setToast(`${o.title}: ${ins.verdict.toUpperCase()} — fit ${ins.fit_score}/100.`);
+    } catch (e) { setToast(e instanceof Error ? e.message : "Triage failed"); }
+    finally { setTriagingId(null); }
+  }, [triagingId]);
+
+  const addAiAction = useCallback(async (text: string) => {
+    if (captureBusy.current || !text.trim()) return;
+    captureBusy.current = true;
+    try {
+      const force = aiAddForce.current && text === lastAiAdd.current;
+      const r = await quickCapture(text, force);
+      if (!r.created && r.duplicate_of) {
+        aiAddForce.current = true;
+        lastAiAdd.current = text;
+        setToast(`Already open: "${r.duplicate_of}" — press ADD again to log anyway.`);
+        return;
+      }
+      aiAddForce.current = false; lastAiAdd.current = "";
+      setToast(`Captured: ${r.title}`);
+      void refresh();
+    } catch (e) { setToast(e instanceof Error ? e.message : "Capture failed"); }
+    finally { captureBusy.current = false; }
+  }, [refresh]);
+
+  const saveProfileCard = useCallback(async () => {
+    try {
+      await saveAiProfile({
+        education: profEdu.trim(), interests: profInterests.trim(), skills: profSkills.trim(),
+        experience: profExp.trim(), constraints: profConstraints.trim(),
+      });
+      setToast("Profile saved — the AI reads this on every triage.");
+    } catch (e) { setToast(e instanceof Error ? e.message : "Save failed"); }
+  }, [profEdu, profInterests, profSkills, profExp, profConstraints]);
+
   const addFeedRow = useCallback(async () => {
     if (!fLabel.trim() && !fParam.trim()) { setToast("Give the feed a name."); return; }
     try {
@@ -596,7 +651,6 @@ export default function App() {
   return (
     <>
       <div ref={wipeRef} className="theme-wipe" />
-
       <header className="app-header">
         <h1 className="wordmark">FOCUS//WALL</h1>
         <div className="metrics">
@@ -620,13 +674,32 @@ export default function App() {
               {!briefing.reflection_done && <button className="chip" title="One honest line about today — lives in More" onClick={() => setView("more")}>reflect?</button>}
             </div>
           )}
-          <div style={{ display: "flex", gap: 8, margin: "4px 0 10px" }}>
+          <div className="focus-dock">
+            <div className="focus-dock-copy">
+              <span className="focus-kicker">{focus ? "FOCUSING NOW" : "FOCUS NEXT"}</span>
+              <strong>{focus ? focus.task.title : (planned[0]?.title ?? "Nothing queued")}</strong>
+              <span className="focus-sub">{focus ? "Stay here. The wall is locked until this session ends." : "Choose one block. Hold to start. Everything else can wait."}</span>
+            </div>
+            <div className="focus-dock-action">
+              <span className="focus-dock-time">
+                {focus ? fmt(focus.secondsLeft) : planned[0] ? `${String((planned[0].attention_cost ?? 2) * 15).padStart(2, "0")}:00` : "--:--"}
+              </span>
+              {focus ? (
+                <button className="ghost-btn focus-end" title="Stop now — logged as abandoned" onClick={() => void abandon()}>END</button>
+              ) : planned[0] ? (
+                <HoldButton locked={false} onEngaged={() => void engage(planned[0])} />
+              ) : (
+                <button className="ghost-btn" disabled>EMPTY</button>
+              )}
+            </div>
+          </div>
+          <div className="capture-row">
             <input ref={captureRef} className="field" style={{ margin: 0 }}
               title="Bare capture = 45 min (a real block). !25 = 25 minutes (under 30 = small win). !t = due today. !daily !weekly !monthly = repeats. Duplicate titles ask first."
-              placeholder="Capture — !t today · !25 for 25 min · !daily repeats"
+              placeholder="Capture a block… !t today · !25 for 25 min · !daily"
               value={qText} onChange={(e) => setQText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void quickAdd(); }} />
-            <button className="ghost-btn" style={{ height: "auto" }} disabled={qBusy} title="Add the line above (or just press Enter)" onClick={() => void quickAdd()}>ADD</button>
+            <button className="ghost-btn capture-add" disabled={qBusy} title="Add the line above (or just press Enter)" onClick={() => void quickAdd()}>ADD</button>
           </div>
           {sections.map(([label, items]) => (
             <section key={label}>
@@ -714,8 +787,11 @@ export default function App() {
         <main className="focus-screen">
           {focus ? (
             <>
+              <div className="focus-lock-note"><span className="focus-pin-mark" aria-hidden="true" /> THE WALL IS CLOSED</div>
+              <p className="focus-whisper">One thing. Stay with it.</p>
               <h2 className="focus-title">{focus.task.title}</h2>
               <div className="focus-count">{fmt(focus.secondsLeft)}</div>
+              <p className="focus-footer">You don't need to remember anything else right now.</p>
               <button className="ghost-btn" title="Stop now — logged as abandoned, still honest data" onClick={() => void abandon()}>END EARLY</button>
             </>
           ) : (
@@ -795,7 +871,6 @@ export default function App() {
               <button key={f} className={`chip${oppFilter === f ? " active" : ""}`} onClick={() => setOppFilter(f)}>{f}</button>
             ))}
           </div>
-
           <div className="section-label">Radar — roles found for you</div>
           <button className="ghost-btn" title="Pull fresh roles from all your feeds (auto-capped at once per 4h)" onClick={() => void manualRefresh()}>REFRESH NOW</button>
           {radar.map((d) => (
@@ -834,7 +909,7 @@ export default function App() {
           <input className="field" placeholder="Name it (e.g. Quant internships)" value={fLabel} onChange={(e) => setFLabel(e.target.value)} />
           <button className="ghost-btn" title="Start watching this source" onClick={() => void addFeedRow()}>WATCH</button>
 
-          <div className="section-label">Pipeline</div>
+          <div className="section-label" title="Pinned roles you're acting on — TRIAGE asks the AI to score each against your profile">Pipeline</div>
           {opps.map((o) => (
             <div key={o.id} className="goal-row">
               <h4>{o.title}</h4>
@@ -844,10 +919,58 @@ export default function App() {
                 {o.url ? <> · <a href={o.url} target="_blank" rel="noreferrer">link</a></> : null}
               </div>
               <div className="chip-row" style={{ marginBottom: 0 }}>
+                <button className="chip" disabled={triagingId === o.id}
+                  title="Ask the AI to score this against your profile — reads the linked page or the Notes field"
+                  onClick={() => void runTriage(o)}>{triagingId === o.id ? "…" : "TRIAGE"}</button>
                 {o.next_states.map((s) => (
                   <button key={s} className="chip" title={`Move to ${s}`} onClick={() => void advance(o, s)}>{s === "archived" ? "archive" : `→ ${s}`}</button>
                 ))}
               </div>
+              {insights[o.id] && (() => {
+                const ins = insights[o.id];
+                return (
+                  <div className="ai-panel">
+                    <div className="ai-head">
+                      <span className={`ai-badge ai-${ins.verdict}`} title="The AI's verdict — chase, maybe, skip, or expired">{ins.verdict.toUpperCase()}</span>
+                      <span className="ai-score" title="Honest fit score against your profile">FIT {ins.fit_score}/100</span>
+                      {ins.deadline && <span className="ai-deadline" title="Extracted by AI — verify on the posting before trusting it">due {ins.deadline} (AI, unverified)</span>}
+                    </div>
+                    {(ins.read_title || ins.read_org) && (
+                      <div className="ai-read" title="What the AI says it analyzed — if this looks wrong, the page fetch grabbed the wrong thing">AI read: {ins.read_title}{ins.read_org ? ` — ${ins.read_org}` : ""}</div>
+                    )}
+                    {ins.why_fits.length > 0 && (
+                      <>
+                        <div className="ai-label">WHY IT FITS</div>
+                        <ul>{ins.why_fits.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                      </>
+                    )}
+                    {ins.concerns.length > 0 && (
+                      <>
+                        <div className="ai-label">VERIFY FIRST</div>
+                        <ul>{ins.concerns.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                      </>
+                    )}
+                    {ins.documents.length > 0 && (
+                      <>
+                        <div className="ai-label">NEEDS</div>
+                        <p>{ins.documents.join(" · ")}</p>
+                      </>
+                    )}
+                    {ins.actions.length > 0 && (
+                      <>
+                        <div className="ai-label">DO NEXT</div>
+                        {ins.actions.map((a, i) => (
+                          <div key={i} className="ai-action">
+                            <span>{a}</span>
+                            <button className="chip" title="Add this as a block on your wall (warns if one already exists)" onClick={() => void addAiAction(a)}>ADD</button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    <div className="ai-meta" title="Which model produced this, and when">{ins.model} · {ins.created_at.slice(0, 10)}</div>
+                  </div>
+                );
+              })()}
             </div>
           ))}
           {opps.length === 0 && <p className="empty-note">The horizon is clear. Log something below.</p>}
@@ -888,6 +1011,18 @@ export default function App() {
               ))}
             </>
           )}
+          <div className="section-label" title="The AI reads this every time it triages an opportunity — keep it current">Your profile — what the AI knows about you</div>
+          <input className="field" placeholder="Education — e.g. BSc Computer Science, Babcock University, 200L, class of 2029" value={profEdu}
+            onChange={(e) => setProfEdu(e.target.value)} />
+          <input className="field" placeholder="Interests — comma separated, e.g. AI, data science, technical writing" value={profInterests}
+            onChange={(e) => setProfInterests(e.target.value)} />
+          <input className="field" placeholder="Skills — comma separated, e.g. Python, pandas, Git" value={profSkills}
+            onChange={(e) => setProfSkills(e.target.value)} />
+          <input className="field" placeholder="Experience — e.g. GDG RADAR co-lead, course rep, projects" value={profExp}
+            onChange={(e) => setProfExp(e.target.value)} />
+          <input className="field" placeholder="Constraints — e.g. paid or funded only, no roles needing US/EU work authorization" value={profConstraints}
+            onChange={(e) => setProfConstraints(e.target.value)} />
+          <button className="ghost-btn" title="Save your profile — the AI scores every opportunity against exactly this" onClick={() => void saveProfileCard()}>SAVE PROFILE</button>
           <div className="section-label">Utility</div>
           <button className="ghost-btn" title="Switch between dark and light — saved to your account" onClick={() => switchTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}>SWITCH THEME</button>
         </main>
@@ -912,11 +1047,15 @@ export default function App() {
       )}
 
       <nav className="navbar">
-        {(["wall", "focus", "goals", "opps", "more"] as View[]).map((v) => (
-          <NavButton key={v} active={view === v} hint={NAV_HINTS[v]} onGo={() => setView(v)}>{GLYPHS[v]}</NavButton>
-        ))}
+        {(["wall", "focus", "goals", "opps", "more"] as View[]).map((v) => {
+          const navLocked = Boolean(focus && v !== "focus");
+          return (
+            <NavButton key={v} active={view === v} locked={navLocked} hint={navLocked ? "Locked in — finish the block before leaving focus." : NAV_HINTS[v]} onGo={() => setView(v)}>
+              {GLYPHS[v]}<span className="nav-label">{v === "opps" ? "RADAR" : v.toUpperCase()}</span>
+            </NavButton>
+          );
+        })}
       </nav>
-
       {toast && <div className="toast">{toast}</div>}
     </>
   );

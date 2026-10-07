@@ -1,17 +1,14 @@
 import os
 from contextlib import asynccontextmanager
-
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.core.config import settings
 from app.db.init_db import main as init_db
-from app.routers import daily, focus, goals, logs, opportunities, quick_capture, radar, tasks, wall
+from app.routers import ai, daily, focus, goals, logs, opportunities, quick_capture, radar, tasks, wall
 from app.routers import auth as auth_router
 from app.routers import maintenance
 from app.routers import settings as settings_router
 from app.routers.auth import verify_session
-
 
 def _optional_router(module_name: str):
     try:
@@ -22,17 +19,15 @@ def _optional_router(module_name: str):
             return None
         raise
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     yield
 
-
 _vercel = os.getenv("VERCEL") is not None
 app = FastAPI(
     title="FOCUS//WALL API",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
     docs_url=None if _vercel else "/docs",
     redoc_url=None,
@@ -46,7 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 async def auth(x_app_token: str | None = Header(default=None)):
     # Password mode: only server-issued session tokens are accepted.
     if os.getenv("AUTH_PASSWORD"):
@@ -58,8 +52,7 @@ async def auth(x_app_token: str | None = Header(default=None)):
         return
     raise HTTPException(401, "Invalid app token")
 
-
-app.include_router(auth_router.router)  # the login gate itself stays open
+app.include_router(auth_router.router) # the login gate itself stays open
 app.include_router(goals.router, dependencies=[Depends(auth)])
 app.include_router(tasks.router, dependencies=[Depends(auth)])
 app.include_router(wall.router, dependencies=[Depends(auth)])
@@ -71,6 +64,7 @@ app.include_router(settings_router.router, dependencies=[Depends(auth)])
 app.include_router(quick_capture.router, dependencies=[Depends(auth)])
 app.include_router(maintenance.router, dependencies=[Depends(auth)])
 app.include_router(daily.router, dependencies=[Depends(auth)])
+app.include_router(ai.router, dependencies=[Depends(auth)])
 for _name in ("projects", "health"):
     _r = _optional_router(_name)
     if _r is not None:
