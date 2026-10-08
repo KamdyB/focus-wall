@@ -203,6 +203,14 @@ export function dismissItem(id: string): Promise<unknown> {
   return request(`/radar/${id}/dismiss`, { method: "POST" });
 }
 
+export type StudyLabCloudState = { data: Record<string, unknown> | null; updated_at: string | null };
+export function getStudyLabState(): Promise<StudyLabCloudState> {
+  return request<StudyLabCloudState>("/study-lab");
+}
+export function saveStudyLabState(data: Record<string, unknown>): Promise<{ saved: boolean; updated_at: string }> {
+  return request("/study-lab", { method: "PUT", body: JSON.stringify({ data }) });
+}
+
 export function createLog(payload: {
   session_id?: string; task_id?: string; minutes: number;
   worked_on?: string; needed_help: boolean;
