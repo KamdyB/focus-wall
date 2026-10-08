@@ -89,11 +89,15 @@ async def get_state(db: AsyncSession = Depends(get_session)) -> dict:
             "source": "legacy-cloud-snapshot",
             "progress": current_data,
         }
+    compact = current_data if current_data and not _is_full_state(current_data) else None
+    if compact is None:
+        compact_row = await db.get(StudyLabState, 3)
+        compact = _decode(compact_row)
     return {
         "data": None,
         "updated_at": current.updated_at.isoformat() if current and current.updated_at else None,
         "source": "empty",
-        "progress": current_data,
+        "progress": compact,
     }
 
 
