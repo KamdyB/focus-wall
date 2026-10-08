@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap");
 
 /* ============ The Bedrock / The Shore — dual-tone ============ */
 :root {
@@ -390,6 +390,7 @@ button.pin {
   cursor: pointer;
 }
 
+<<<<<<< HEAD
 /* ---- AI triage panel ---- */
 .ai-panel {
   margin-top: 10px;
@@ -424,3 +425,781 @@ button.pin {
 }
 .ai-action:last-of-type { border-bottom: none; }
 .ai-meta { margin-top: 8px; font-size: 11px; opacity: 0.5; }
+=======
+
+/* ============================================================
+   BLOSSOM BLUE WALL — visual layer
+   Inspired by the blue masonry reference: deep blue wall,
+   pale mortar, paper-like cards, physical pins, cobalt accents.
+   This is intentionally CSS-only so the existing app architecture,
+   data model and interactions remain untouched.
+   ============================================================ */
+:root {
+  --canvas: #d7e6f5;
+  --brick: #6f91bd;
+  --brick-2: #587ba9;
+  --panel: rgba(255, 253, 247, 0.94);
+  --panel-2: rgba(247, 251, 255, 0.82);
+  --glass: rgba(225, 239, 253, 0.78);
+  --edge: rgba(12, 38, 72, 0.19);
+  --ink: #102542;
+  --ink-soft: #405978;
+  --ink-faint: #6d829c;
+  --accent: #1e5da7;
+  --shadow: rgba(18, 43, 76, 0.28);
+  --mortar: #e9f1f8;
+}
+[data-theme="dark"] {
+  --canvas: #08182d;
+  --brick: #12365a;
+  --brick-2: #174265;
+  --panel: rgba(11, 29, 50, 0.94);
+  --panel-2: rgba(20, 49, 78, 0.82);
+  --glass: rgba(8, 25, 45, 0.84);
+  --edge: rgba(190, 220, 248, 0.17);
+  --ink: #eef7ff;
+  --ink-soft: #aec5dc;
+  --ink-faint: #7894af;
+  --accent: #72b7ff;
+  --shadow: rgba(0, 0, 0, 0.56);
+  --mortar: #0b223b;
+}
+
+/* The wall itself: blue running-bond masonry with a soft photographed
+   highlight, slightly uneven faces and a fine mineral grain. */
+body {
+  background-color: var(--mortar);
+  background-image:
+    radial-gradient(110% 75% at 50% -8%, rgba(255,255,255,0.24), transparent 58%),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 34px,
+      rgba(239, 247, 255, 0.88) 34px 38px,
+      transparent 38px 76px
+    ),
+    linear-gradient(335deg, var(--brick) 44px, transparent 44px),
+    linear-gradient(155deg, var(--brick) 44px, transparent 44px),
+    linear-gradient(335deg, var(--brick-2) 44px, transparent 44px),
+    linear-gradient(155deg, var(--brick-2) 44px, transparent 44px),
+    radial-gradient(120% 90% at 50% 0%, transparent 48%, rgba(4, 19, 37, 0.22)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23grain)' opacity='.045'/%3E%3C/svg%3E");
+  background-size:
+    100% 100%,
+    100% 76px,
+    112px 112px,
+    112px 112px,
+    112px 112px,
+    112px 112px,
+    100% 100%,
+    180px 180px;
+  background-position:
+    0 0,
+    0 0,
+    0 4px,
+    8px 60px,
+    56px 58px,
+    48px 6px,
+    0 0,
+    0 0;
+  background-attachment: fixed;
+}
+
+/* A little more "physical wall" depth without adding another component. */
+.wall-viewport {
+  padding-top: 10px;
+}
+.wall-grid {
+  gap: 22px 20px;
+}
+
+/* Cards read as pinned paper notes against the blue masonry. */
+.task-card {
+  filter: drop-shadow(0 15px 22px var(--shadow));
+}
+.task-card:hover {
+  filter: drop-shadow(0 20px 28px var(--shadow));
+}
+.card-tilt {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.58), transparent 42%),
+    var(--panel);
+  border-color: rgba(255,255,255,0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.7),
+    inset 0 0 0 1px rgba(19, 51, 88, 0.055);
+}
+[data-theme="dark"] .card-tilt {
+  background:
+    linear-gradient(145deg, rgba(121, 183, 238, 0.12), transparent 45%),
+    var(--panel);
+  border-color: rgba(163, 205, 240, 0.18);
+  box-shadow: inset 0 1px 0 rgba(205,230,250,0.08);
+}
+
+.pin {
+  width: 17px;
+  height: 17px;
+  margin-left: -8.5px;
+  top: -8px;
+  background:
+    radial-gradient(circle at 33% 28%, #ffffff 0 10%, #8fc7ff 11% 25%, var(--lane-c, #2c70bd) 27% 68%, #173f70 70%);
+  box-shadow:
+    0 3px 5px rgba(7, 26, 49, 0.38),
+    inset 0 -2px 3px rgba(0,0,0,0.28),
+    0 0 0 2px rgba(255,255,255,0.22);
+}
+
+.lane-tag {
+  border-color: color-mix(in srgb, var(--lane-c, var(--accent)) 28%, transparent);
+  background: color-mix(in srgb, var(--lane-c, var(--accent)) 12%, transparent);
+}
+.lane-technical     { --lane-c: #1765b5; --lane-bg: rgba(50, 129, 211, 0.14); }
+.lane-creative      { --lane-c: #bd527f; --lane-bg: rgba(206, 101, 145, 0.13); }
+.lane-university    { --lane-c: #6254c8; --lane-bg: rgba(111, 98, 215, 0.13); }
+.lane-competitions  { --lane-c: #1f8b82; --lane-bg: rgba(52, 165, 153, 0.13); }
+.lane-opportunities { --lane-c: #4f8c45; --lane-bg: rgba(88, 163, 75, 0.13); }
+.lane-writing       { --lane-c: #c15e49; --lane-bg: rgba(211, 102, 79, 0.13); }
+.lane-exercise      { --lane-c: #d16c32; --lane-bg: rgba(226, 121, 69, 0.13); }
+.lane-personal      { --lane-c: #7468bd; --lane-bg: rgba(126, 113, 197, 0.13); }
+
+[data-theme="dark"] .lane-technical     { --lane-c: #7fc0ff; }
+[data-theme="dark"] .lane-creative      { --lane-c: #ff94c0; }
+[data-theme="dark"] .lane-university    { --lane-c: #aaa0ff; }
+[data-theme="dark"] .lane-competitions  { --lane-c: #6ed7ca; }
+[data-theme="dark"] .lane-opportunities { --lane-c: #9bd67e; }
+[data-theme="dark"] .lane-writing       { --lane-c: #ff9b86; }
+[data-theme="dark"] .lane-exercise      { --lane-c: #ffb06d; }
+[data-theme="dark"] .lane-personal      { --lane-c: #b7aaff; }
+
+/* Make the action strip feel like the lower edge of a mounted note. */
+.base-plate {
+  background: rgba(20, 55, 92, 0.085);
+  border-top-color: rgba(20, 55, 92, 0.13);
+}
+[data-theme="dark"] .base-plate {
+  background: rgba(0, 0, 0, 0.24);
+  border-top-color: rgba(190, 220, 248, 0.12);
+}
+
+.hold-btn {
+  background: rgba(238, 247, 255, 0.7);
+  color: var(--ink-soft);
+  border-color: rgba(25, 74, 122, 0.18);
+}
+[data-theme="dark"] .hold-btn {
+  background: rgba(28, 67, 103, 0.72);
+}
+.hold-fill {
+  background: linear-gradient(90deg, var(--accent), #77c5ff);
+}
+
+.ghost-btn {
+  background: rgba(238, 247, 255, 0.68);
+  color: var(--ink);
+  border-color: rgba(25, 74, 122, 0.18);
+}
+[data-theme="dark"] .ghost-btn {
+  background: rgba(25, 60, 92, 0.72);
+  border-color: rgba(160, 205, 240, 0.18);
+}
+.ghost-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Header / utility surfaces should sit naturally on the wall. */
+.metrics span,
+.theme-btn,
+.briefing,
+.field,
+.chip,
+.tray-pill,
+.nav-btn {
+  box-shadow: 0 5px 16px rgba(15, 46, 80, 0.08);
+}
+.section-label {
+  color: rgba(245, 251, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(8, 27, 49, 0.3);
+}
+.section-label::after {
+  background: rgba(235, 246, 255, 0.46);
+}
+.wordmark {
+  color: #f4f9ff;
+  text-shadow: 0 1px 2px rgba(5, 23, 43, 0.28);
+}
+.metrics {
+  color: #edf7ff;
+}
+.metrics span {
+  background: rgba(11, 36, 62, 0.32);
+  border-color: rgba(235, 247, 255, 0.25);
+}
+
+/* Panels retain readability while looking like objects mounted on the wall. */
+.panel {
+  max-width: 620px;
+}
+.goal-row {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.5), transparent 44%),
+    var(--panel);
+  border-color: rgba(255,255,255,0.55);
+  box-shadow: 0 10px 24px var(--shadow);
+}
+[data-theme="dark"] .goal-row {
+  background:
+    linear-gradient(145deg, rgba(115, 181, 236, 0.1), transparent 44%),
+    var(--panel);
+  border-color: rgba(160, 205, 240, 0.17);
+}
+
+.navbar {
+  background: rgba(225, 239, 253, 0.78);
+  border-color: rgba(18, 57, 94, 0.18);
+  box-shadow: 0 12px 32px rgba(8, 28, 52, 0.24);
+}
+[data-theme="dark"] .navbar {
+  background: rgba(8, 28, 50, 0.86);
+  border-color: rgba(160, 205, 240, 0.15);
+}
+.nav-btn {
+  background: rgba(245, 250, 255, 0.7);
+}
+[data-theme="dark"] .nav-btn {
+  background: rgba(25, 60, 92, 0.72);
+}
+.nav-btn.active {
+  background: #155da8;
+  color: #f5fbff;
+}
+[data-theme="dark"] .nav-btn.active {
+  background: #2b79c7;
+  color: #f5fbff;
+}
+
+.tray {
+  background: rgba(225, 239, 253, 0.76);
+  border-top-color: rgba(18, 57, 94, 0.18);
+}
+[data-theme="dark"] .tray {
+  background: rgba(8, 28, 50, 0.84);
+}
+
+.toast {
+  background: #123d6b;
+  color: #f6fbff;
+}
+
+/* Keep small screens tactile; the wall should still feel spacious rather than cramped. */
+@media (max-width: 620px) {
+  .app-header {
+    padding-inline: 14px;
+  }
+  .metrics span:nth-child(3) {
+    display: none;
+  }
+  .wall-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .card-tilt {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+
+/* BLOSSOM STONE WALL v2: horizontal masonry only; diagonal geometry intentionally removed. */
+:root { --mortar:#e8edf2; --stone-a:#607997; --stone-b:#7189a4; --stone-c:#536d8b; --stone-shadow:rgba(18,39,62,.34); }
+[data-theme="dark"] { --mortar:#0c2741; --stone-a:#193b5d; --stone-b:#214a70; --stone-c:#173650; --stone-shadow:rgba(0,0,0,.55); }
+body {
+  background-color:var(--mortar);
+  background-image:
+    radial-gradient(120% 70% at 50% 0%,rgba(255,255,255,.22),transparent 62%),
+    repeating-linear-gradient(180deg,transparent 0 68px,var(--mortar) 68px 75px),
+    repeating-linear-gradient(90deg,transparent 0 124px,var(--mortar) 124px 131px),
+    linear-gradient(180deg,var(--stone-a),var(--stone-b));
+  background-size:100% 100%,100% 75px,262px 75px,100% 100%;
+  background-position:0 0,0 0,-131px 75px,0 0;
+  background-attachment:fixed;
+}
+[data-theme="dark"] body { background-image:radial-gradient(120% 70% at 50% 0%,rgba(126,183,230,.12),transparent 62%),repeating-linear-gradient(180deg,transparent 0 68px,var(--mortar) 68px 75px),repeating-linear-gradient(90deg,transparent 0 124px,var(--mortar) 124px 131px),linear-gradient(180deg,var(--stone-a),var(--stone-c)); }
+body::before {
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:-1; opacity:.24;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='.18'/%3E%3C/svg%3E");
+  mix-blend-mode:soft-light;
+}
+.card-tilt { background:var(--panel); border-color:rgba(255,255,255,.66); box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 0 0 0 1px rgba(18,50,82,.05); }
+[data-theme="dark"] .card-tilt { background:var(--panel); border-color:rgba(171,209,239,.16); }
+.focus-dock { display:flex;align-items:center;justify-content:space-between;gap:16px;margin:10px 0 14px;padding:16px 18px;background:rgba(247,251,255,.95);border:1px solid rgba(255,255,255,.72);border-left:4px solid var(--accent);border-radius:14px;box-shadow:0 15px 32px var(--shadow); }
+[data-theme="dark"] .focus-dock { background:rgba(10,32,53,.95);border-color:rgba(166,207,240,.15); }
+.focus-dock-copy { display:grid;gap:3px;min-width:0; } .focus-kicker { font:600 10px/1 "JetBrains Mono",monospace;letter-spacing:.18em;color:var(--accent); } .focus-dock-copy strong { font:700 16px/1.3 "JetBrains Mono",monospace;overflow-wrap:anywhere; } .focus-sub { color:var(--ink-soft);font-size:12px; }
+.focus-dock-action { display:flex;align-items:center;gap:9px;flex:0 0 auto; } .focus-dock-time { font:700 17px/1 "JetBrains Mono",monospace;white-space:nowrap; } .focus-dock .hold-btn { min-width:148px;flex:0 0 auto; } .focus-end { min-width:74px; }
+.capture-row { display:flex;gap:8px;align-items:stretch;margin:8px 0 12px; } .capture-row .field { flex:1;min-width:0; } .capture-add { min-width:74px; }
+.wordmark { color:#f5f9ff;text-shadow:0 2px 3px rgba(7,25,43,.35); } .metrics { color:#edf7ff; } .metrics span { background:rgba(10,35,59,.42);border-color:rgba(235,247,255,.22); } .theme-btn { background:rgba(240,248,255,.74);color:#153553; }
+.section-label { color:rgba(246,251,255,.96);text-shadow:0 1px 2px rgba(8,27,49,.4); } .section-label::after { background:rgba(235,246,255,.42); }
+.navbar { left:12px;right:12px;height:66px;background:rgba(225,239,253,.9);border-color:rgba(18,57,94,.18);box-shadow:0 14px 34px rgba(8,28,52,.26); }
+[data-theme="dark"] .navbar { background:rgba(8,28,50,.92);border-color:rgba(160,205,240,.15); }
+.nav-btn { width:auto;min-width:64px;height:48px;padding:5px 11px;border-radius:12px!important;display:flex;flex-direction:column;gap:4px;background:rgba(245,250,255,.74);color:#50677f; } .nav-btn.active { background:#155da8;color:#f5fbff;box-shadow:0 6px 16px rgba(21,93,168,.28); }
+[data-theme="dark"] .nav-btn { background:rgba(25,60,92,.8);color:#a9bfd4; } [data-theme="dark"] .nav-btn.active { background:#2b79c7;color:#f5fbff; }
+.nav-icon { display:inline-flex;line-height:1; } .nav-label { font:600 8px/1 "JetBrains Mono",monospace;letter-spacing:.08em; } .nav-btn svg { width:19px;height:19px; }
+@media (max-width:620px) {
+  .wall-viewport { padding:4px 11px calc(142px + env(safe-area-inset-bottom,0px)); }
+  .focus-dock { align-items:stretch;flex-direction:column;gap:12px;margin:9px 0 10px;padding:14px;border-radius:13px; }
+  .focus-dock-copy strong { font-size:15px; } .focus-sub { font-size:11px; }
+  .focus-dock-action { width:100%;display:grid;grid-template-columns:auto 1fr;gap:8px; }
+  .focus-dock-time { min-width:66px;display:grid;place-items:center;border:1px solid var(--edge);border-radius:8px;padding:0 8px;background:var(--panel-2); }
+  .focus-dock .hold-btn { width:100%;min-width:0; } .focus-end { width:100%; }
+  .capture-row { gap:7px;margin:7px 0 10px; } .capture-add { min-width:60px;padding-inline:11px; }
+  .wall-grid { grid-template-columns:1fr;gap:14px; } .task-card { filter:drop-shadow(0 11px 18px var(--shadow)); }
+  .navbar { left:7px;right:7px;height:66px;border-radius:17px;padding:5px 4px; }
+  .nav-btn { min-width:0;flex:1;height:54px;padding:6px 3px;background:transparent;box-shadow:none; } .nav-label { font-size:7.5px; } .nav-btn svg { width:18px;height:18px; }
+}
+/* FINAL STONE WALL — staggered, irregular blocks; no square grid and no diagonals. */
+body{
+  background-color:#e7edf2;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='420' viewBox='0 0 720 420'%3E%3Cdefs%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.035' numOctaves='3' seed='8'/%3E%3CfeColorMatrix values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 .18 0'/%3E%3C/filter%3E%3ClinearGradient id='a' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop stop-color='%237e95ae'/%3E%3Cstop offset='1' stop-color='%23556e8c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='720' height='420' fill='%23e7edf2'/%3E%3Cg stroke='%23e7edf2' stroke-width='10' stroke-linejoin='round'%3E%3Cpath fill='url(%23a)' d='M-12 0h150l13 12-5 76-10 9H-12z'/%3E%3Cpath fill='%23647d9a' d='M150 0h178l10 13-7 72-13 12H154l-11-11 4-72z'/%3E%3Cpath fill='%23526b88' d='M338 0h120l12 10-5 88-12 7H337l-9-12 3-82z'/%3E%3Cpath fill='%23748ca6' d='M469 0h178l12 13-8 71-10 14H472l-11-12 3-75z'/%3E%3Cpath fill='%235b738f' d='M658 0h74v100h-67l-11-11 5-78z'/%3E%3Cpath fill='%236f87a2' d='M-12 100h92l10 12-7 87-11 8h-84z'/%3E%3Cpath fill='%23546d8a' d='M91 100h205l11 12-7 78-13 11H95l-13-11 5-79z'/%3E%3Cpath fill='%237990a8' d='M307 100h151l12 11-6 78-10 12H310l-12-10 5-80z'/%3E%3Cpath fill='%235b738f' d='M470 100h93l12 12-6 87-10 8h-92l-10-10 4-80z'/%3E%3Cpath fill='%23728aa5' d='M572 100h160v100H579l-11-12 5-77z'/%3E%3Cpath fill='%23556e8b' d='M-12 200h170l11 11-6 86-11 13H-12z'/%3E%3Cpath fill='%23748ba5' d='M169 200h113l12 12-6 83-12 15H172l-11-12 4-85z'/%3E%3Cpath fill='%23546d8a' d='M294 200h191l11 11-6 88-12 12H296l-10-11 4-89z'/%3E%3Cpath fill='%23677f9a' d='M495 200h93l12 12-7 85-11 14h-91l-10-11 4-88z'/%3E%3Cpath fill='%23768da7' d='M596 200h136v100H602l-11-12 4-77z'/%3E%3Cpath fill='%23627b97' d='M-12 300h119l12 12-6 98H-12z'/%3E%3Cpath fill='%23536c89' d='M119 300h184l11 11-6 96-12 13H122l-11-11 4-88z'/%3E%3Cpath fill='%23738aa4' d='M315 300h126l12 11-6 96H318l-11-12 4-84z'/%3E%3Cpath fill='%235a728f' d='M452 300h178l11 12-6 98H457l-11-12 4-88z'/%3E%3Cpath fill='%23728aa5' d='M641 300h91v120h-82l-12-11 4-97z'/%3E%3C/g%3E%3Crect width='720' height='420' filter='url(%23n)' opacity='.48'/%3E%3C/svg%3E");
+  background-size:720px 420px;
+  background-position:0 0;
+  background-attachment:fixed;
+}
+[data-theme="dark"] body{
+  background-image:linear-gradient(rgba(3,17,31,.52),rgba(3,17,31,.52)),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='420' viewBox='0 0 720 420'%3E%3Cdefs%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.035' numOctaves='3' seed='8'/%3E%3CfeColorMatrix values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 .18 0'/%3E%3C/filter%3E%3ClinearGradient id='a' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop stop-color='%237e95ae'/%3E%3Cstop offset='1' stop-color='%23556e8c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='720' height='420' fill='%23e7edf2'/%3E%3Cg stroke='%23e7edf2' stroke-width='10' stroke-linejoin='round'%3E%3Cpath fill='url(%23a)' d='M-12 0h150l13 12-5 76-10 9H-12z'/%3E%3Cpath fill='%23647d9a' d='M150 0h178l10 13-7 72-13 12H154l-11-11 4-72z'/%3E%3Cpath fill='%23526b88' d='M338 0h120l12 10-5 88-12 7H337l-9-12 3-82z'/%3E%3Cpath fill='%23748ca6' d='M469 0h178l12 13-8 71-10 14H472l-11-12 3-75z'/%3E%3Cpath fill='%235b738f' d='M658 0h74v100h-67l-11-11 5-78z'/%3E%3Cpath fill='%236f87a2' d='M-12 100h92l10 12-7 87-11 8h-84z'/%3E%3Cpath fill='%23546d8a' d='M91 100h205l11 12-7 78-13 11H95l-13-11 5-79z'/%3E%3Cpath fill='%237990a8' d='M307 100h151l12 11-6 78-10 12H310l-12-10 5-80z'/%3E%3Cpath fill='%235b738f' d='M470 100h93l12 12-6 87-10 8h-92l-10-10 4-80z'/%3E%3Cpath fill='%23728aa5' d='M572 100h160v100H579l-11-12 5-77z'/%3E%3Cpath fill='%23556e8b' d='M-12 200h170l11 11-6 86-11 13H-12z'/%3E%3Cpath fill='%23748ba5' d='M169 200h113l12 12-6 83-12 15H172l-11-12 4-85z'/%3E%3Cpath fill='%23546d8a' d='M294 200h191l11 11-6 88-12 12H296l-10-11 4-89z'/%3E%3Cpath fill='%23677f9a' d='M495 200h93l12 12-7 85-11 14h-91l-10-11 4-88z'/%3E%3Cpath fill='%23768da7' d='M596 200h136v100H602l-11-12 4-77z'/%3E%3Cpath fill='%23627b97' d='M-12 300h119l12 12-6 98H-12z'/%3E%3Cpath fill='%23536c89' d='M119 300h184l11 11-6 96-12 13H122l-11-11 4-88z'/%3E%3Cpath fill='%23738aa4' d='M315 300h126l12 11-6 96H318l-11-12 4-84z'/%3E%3Cpath fill='%235a728f' d='M452 300h178l11 12-6 98H457l-11-12 4-88z'/%3E%3Cpath fill='%23728aa5' d='M641 300h91v120h-82l-12-11 4-97z'/%3E%3C/g%3E%3Crect width='720' height='420' filter='url(%23n)' opacity='.48'/%3E%3C/svg%3E");
+  background-size:100% 100%,720px 420px;
+}
+body::before{opacity:.13!important}
+.navbar{
+  background:rgba(7,31,54,.9)!important;
+  border:1px solid rgba(181,214,239,.16)!important;
+  box-shadow:0 18px 40px rgba(3,20,36,.34)!important;
+}
+.nav-btn{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:#9db6ce;
+  border-radius:11px!important;
+  position:relative;
+}
+.nav-btn.active{
+  background:#2378ca!important;
+  color:#fff!important;
+  box-shadow:0 7px 18px rgba(22,104,180,.3)!important;
+}
+.nav-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav-label{font-size:8px;letter-spacing:.12em}
+@media(max-width:620px){
+  .navbar{left:12px!important;right:12px!important;bottom:calc(10px + env(safe-area-inset-bottom,0px));height:62px!important;border-radius:18px!important;padding:4px!important}
+  .nav-btn{height:54px!important;gap:3px!important}
+  .nav-label{font-size:7px!important}
+  .nav-btn.active{border-radius:14px!important}
+}
+
+/* WHIMSY + ATTENTION SUPPORT — playful enough to invite use, quiet enough not to distract. */
+:root{
+  --paper:#f8f3e8;
+  --ink:#102a44;
+  --blue:#2d82d4;
+  --pin-gold:#e7b64d;
+}
+.card-tilt{
+  background:
+    linear-gradient(102deg,rgba(255,255,255,.5),transparent 24%),
+    var(--panel);
+}
+.task-card:nth-child(3n+1) .card-tilt{transform:rotate(-.45deg) translateY(1px)}
+.task-card:nth-child(3n+2) .card-tilt{transform:rotate(.35deg) translateY(-1px)}
+.task-card:nth-child(3n) .card-tilt{transform:rotate(-.2deg) translateY(1px)}
+.task-card:hover .card-tilt{transform:translateY(-3px) rotate(0deg)}
+.pin{
+  width:20px!important;height:20px!important;top:-9px!important;
+  background:
+    radial-gradient(circle at 31% 27%,#fff 0 9%,#ffd66b 10% 25%,#d99b2b 27% 67%,#8c5c15 69% 100%)!important;
+  box-shadow:0 3px 3px rgba(19,38,55,.35),inset 0 -2px 2px rgba(83,48,5,.4),0 0 0 2px rgba(255,245,207,.35)!important;
+  transition:transform .18s ease;
+}
+.task-card:hover .pin{transform:translateY(-2px) rotate(-8deg)}
+.section-label{letter-spacing:.22em}
+.section-label::before{content:"✦";display:inline-block;margin-right:8px;font-size:9px;opacity:.72;transform:translateY(-1px)}
+.focus-dock{
+  position:relative;
+  overflow:hidden;
+}
+.focus-dock::after{
+  content:"";
+  position:absolute;right:18px;top:12px;width:38px;height:18px;
+  border-top:2px solid rgba(45,130,212,.18);
+  border-radius:50%;
+  transform:rotate(-8deg);
+  pointer-events:none;
+}
+.focus-dock-copy strong{font-size:17px}
+.focus-kicker::before{content:"✦ ";font-size:8px}
+.focus-screen{
+  min-height:calc(100vh - 120px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:9vh 20px 150px;
+  position:relative;
+}
+.focus-screen::before{
+  content:"";
+  position:absolute;inset:12% 8% 18%;
+  border:1px dashed rgba(117,169,214,.24);
+  border-radius:28px;
+  pointer-events:none;
+}
+.focus-lock-note{
+  position:relative;
+  z-index:1;
+  color:var(--accent);
+  font:700 10px/1 "JetBrains Mono",monospace;
+  letter-spacing:.24em;
+  margin-bottom:14px;
+}
+.focus-pin-mark{
+  display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;
+  vertical-align:1px;background:#e7b64d;box-shadow:inset 0 -1px 2px #8c5c15;
+}
+.focus-whisper{
+  position:relative;z-index:1;margin:0 0 14px;color:var(--ink-soft);
+  font:italic 14px/1.4 Georgia,serif;
+}
+.focus-title{position:relative;z-index:1;max-width:600px}
+.focus-count{position:relative;z-index:1}
+.focus-footer{
+  position:relative;z-index:1;margin:0 0 22px;color:var(--ink-faint);
+  font-size:12px;
+}
+.nav-locked{opacity:.34!important;cursor:not-allowed!important;filter:grayscale(.5)}
+.nav-locked .nav-label::after{content:" •";color:#e7b64d}
+.hold-btn.filling .hold-label::after{content:"…keep holding";margin-left:6px;opacity:.65}
+@media(max-width:620px){
+  .task-card:nth-child(3n+1) .card-tilt,.task-card:nth-child(3n+2) .card-tilt,.task-card:nth-child(3n) .card-tilt{transform:none}
+  .task-card:hover .card-tilt{transform:translateY(-2px)}
+  .pin{width:18px!important;height:18px!important;top:-8px!important}
+  .focus-screen{min-height:calc(100vh - 92px);padding:8vh 20px 126px}
+  .focus-screen::before{inset:15% 12px 20%;border-radius:22px}
+  .focus-whisper{font-size:13px}
+  .focus-count{font-size:clamp(56px,18vw,82px)}
+}
+
+
+/* READABILITY + FRIENDLY TYPE — final visual pass. */
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap");
+
+/* One approachable family throughout; the interface should feel human, not corporate. */
+html,body,button,input,select,textarea{
+  font-family:"Nunito",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+body{font-weight:500;letter-spacing:.005em}
+.wordmark,.metrics,.tray-title,.focus-kicker,.focus-lock-note,.nav-label,.hold-label,.section-label{
+  font-family:"Nunito",system-ui,sans-serif;
+}
+.wordmark{font-weight:800;letter-spacing:.17em}
+.metrics{font-weight:700}
+.section-label{font-weight:800;letter-spacing:.18em}
+.nav-label{font-weight:800;letter-spacing:.08em}
+.focus-kicker,.focus-lock-note{font-weight:800;letter-spacing:.14em}
+
+/* Blue pin: always blue, but with enough luminance/value against each theme. */
+.pin{
+  background:radial-gradient(circle at 31% 27%,#dff1ff 0 9%,#69b9ff 10% 25%,#1976d2 27% 68%,#0b4f91 70% 100%)!important;
+  box-shadow:0 3px 3px rgba(19,38,55,.34),inset 0 -2px 2px rgba(5,46,91,.45),0 0 0 2px rgba(226,243,255,.5)!important;
+}
+[data-theme="dark"] .pin{
+  background:radial-gradient(circle at 31% 27%,#f1f9ff 0 9%,#9bd5ff 10% 25%,#43a5f5 27% 68%,#1265ad 70% 100%)!important;
+  box-shadow:0 3px 4px rgba(0,0,0,.5),inset 0 -2px 2px rgba(2,36,68,.5),0 0 0 2px rgba(119,190,244,.24)!important;
+}
+
+/* Explicit contrast pairing: text colour follows the surface, never the wallpaper underneath. */
+.card-tilt,.goal-row,.panel,.focus-dock,.tray-pill{
+  color:var(--ink);
+}
+.card-tilt .muted,.goal-row .muted,.panel .muted,
+.card-tilt .subtle,.goal-row .subtle,.panel .subtle{color:var(--ink-soft)}
+[data-theme="dark"] .card-tilt,
+[data-theme="dark"] .goal-row,
+[data-theme="dark"] .panel,
+[data-theme="dark"] .focus-dock,
+[data-theme="dark"] .tray-pill{color:#f2f7fb}
+
+/* Light theme: mounted objects are dark-text surfaces. */
+html:not([data-theme="dark"]) .card-tilt,
+html:not([data-theme="dark"]) .goal-row,
+html:not([data-theme="dark"]) .panel,
+html:not([data-theme="dark"]) .focus-dock{
+  color:#10243a;
+}
+html:not([data-theme="dark"]) .card-tilt .muted,
+html:not([data-theme="dark"]) .goal-row .muted,
+html:not([data-theme="dark"]) .panel .muted,
+html:not([data-theme="dark"]) .focus-dock .focus-sub{color:#40566e}
+
+/* Dark theme: dark mounted objects get light text. */
+[data-theme="dark"] .card-tilt strong,
+[data-theme="dark"] .goal-row strong,
+[data-theme="dark"] .panel strong,
+[data-theme="dark"] .focus-dock strong{color:#f5f9fc}
+[data-theme="dark"] .card-tilt p,
+[data-theme="dark"] .goal-row p,
+[data-theme="dark"] .panel p,
+[data-theme="dark"] .focus-dock .focus-sub{color:#bcd0e2}
+
+/* Inputs need their own readable surface in both modes. */
+.field{
+  background:var(--panel)!important;
+  color:var(--ink)!important;
+  border-color:var(--edge)!important;
+}
+.field::placeholder{color:var(--ink-soft)!important;opacity:1}
+[data-theme="dark"] .field{
+  background:#102c47!important;
+  color:#f2f7fb!important;
+  border-color:rgba(173,211,239,.24)!important;
+}
+[data-theme="dark"] .field::placeholder{color:#a9bfd2!important}
+
+/* Buttons: never use pale text on a pale button. */
+.ghost-btn,.hold-btn,.theme-btn,.chip,.tray-pill{
+  color:var(--ink);
+}
+[data-theme="dark"] .ghost-btn,
+[data-theme="dark"] .hold-btn,
+[data-theme="dark"] .theme-btn,
+[data-theme="dark"] .chip,
+[data-theme="dark"] .tray-pill{color:#f0f6fb}
+.ghost-btn:hover,.theme-btn:hover{color:var(--accent)}
+.hold-btn{color:#153c61}
+[data-theme="dark"] .hold-btn{color:#eef7ff}
+
+/* Header is over the blue stone wall: keep its text light in both modes. */
+.wordmark,.metrics,.section-label{color:#f4f9ff!important}
+.metrics span{color:#e7f2fb!important}
+.section-label::after{background:rgba(235,246,255,.55)!important}
+
+/* Focus screen is intentionally dark: light type belongs on it. */
+.focus-screen .focus-title,.focus-screen .focus-count{color:#f5f9fc}
+.focus-screen .focus-whisper{color:#c4d8e9}
+.focus-screen .focus-footer{color:#a9c0d4}
+[data-theme="dark"] .focus-screen .focus-title,
+[data-theme="dark"] .focus-screen .focus-count{color:#f7fbff}
+
+/* Blue lock accent stays blue in both themes. */
+.focus-lock-note,.focus-kicker{color:#4aa7f7!important}
+[data-theme="dark"] .focus-lock-note,.focus-kicker{color:#7bc7ff!important}
+
+/* Accessibility: don't let the lock state become unreadably faint. */
+.nav-locked{opacity:.48!important}
+[data-theme="dark"] .nav-locked{opacity:.5!important}
+
+
+/* CLEAN + BUBBLY — tidy information architecture without turning Focus Wall into a corporate dashboard. */
+html,body,button,input,select,textarea{
+  font-family:"Fredoka",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+body{font-weight:400;letter-spacing:0}
+.wordmark,.metrics,.tray-title,.focus-kicker,.focus-lock-note,.nav-label,.hold-label,.section-label{
+  font-family:"Fredoka",system-ui,sans-serif;
+}
+.wordmark{font-weight:700;letter-spacing:.16em}
+.metrics{font-weight:600}
+.section-label{font-weight:600;letter-spacing:.13em}
+.nav-label{font-weight:600;letter-spacing:.06em}
+.focus-kicker,.focus-lock-note{font-weight:600;letter-spacing:.11em}
+.field,.field::placeholder{font-family:"Fredoka",system-ui,sans-serif}
+
+/* The wall is the navigation context — don't introduce a persistent sidebar. */
+.wall-viewport{max-width:920px;margin-inline:auto}
+.app-header{max-width:920px;margin-inline:auto}
+
+/* Make the information hierarchy calmer: fewer borders, clearer surfaces. */
+.briefing{
+  border:1px solid rgba(143,185,219,.28);
+  background:rgba(9,34,58,.62);
+  box-shadow:0 8px 24px rgba(5,25,44,.12);
+}
+.focus-dock{
+  border:1px solid rgba(139,184,219,.3);
+  box-shadow:0 12px 30px rgba(5,25,44,.2);
+}
+.capture-row .field{
+  border-radius:12px;
+  min-height:46px;
+}
+.capture-add{
+  border-radius:12px;
+  min-height:46px;
+}
+
+/* Bottom nav is deliberately a compact dock, not five competing cards. */
+.navbar{
+  max-width:560px;
+  left:50%;
+  right:auto!important;
+  transform:translateX(-50%);
+  width:calc(100% - 24px);
+  border-radius:20px!important;
+  padding:4px!important;
+}
+.nav-btn{
+  border-radius:14px!important;
+  min-width:0;
+  flex:1;
+  transition:background .18s ease,transform .18s ease,color .18s ease;
+}
+.nav-btn:not(.active):hover{transform:translateY(-1px);color:#dceeff}
+.nav-btn.active{transform:none}
+.nav-btn svg{stroke-width:1.7}
+@media(max-width:620px){
+  .navbar{width:calc(100% - 16px)!important;max-width:none}
+  .wall-viewport{max-width:none}
+  .app-header{max-width:none}
+}
+
+/* Blue pins stay blue. */
+.pin{
+  background:radial-gradient(circle at 31% 27%,#e4f4ff 0 9%,#75c3ff 10% 25%,#237fd8 27% 68%,#0d579d 70% 100%)!important;
+}
+
+/* Friendlier little labels without turning the UI into sticker soup. */
+.focus-whisper{font-family:"Fredoka",system-ui,sans-serif;font-style:normal;font-weight:500}
+.empty-note,.focus-sub,.focus-footer{font-family:"Fredoka",system-ui,sans-serif}
+
+
+/* FINAL SOFTENING — calm night-room, not dashboard, not toy box. */
+:root{
+  --soft-radius:16px;
+  --surface-shadow:0 10px 28px rgba(7,29,49,.16);
+}
+[data-theme="dark"]{
+  --surface-shadow:0 14px 34px rgba(0,0,0,.28);
+}
+body{
+  font-family:"Fredoka",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-weight:400;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,textarea,select{font-family:inherit}
+.wordmark{font-weight:700}
+.metrics{font-weight:500}
+.section-label{font-weight:600}
+.card-tilt,.focus-dock,.briefing,.panel,.goal-row,.refl-item,.tray,.field,.ghost-btn,.hold-btn,.chip{
+  border-radius:var(--soft-radius);
+}
+.card-tilt{
+  border-width:1px;
+  box-shadow:var(--surface-shadow);
+}
+.focus-dock{
+  background:rgba(12,39,65,.88);
+  border-color:rgba(156,198,229,.2);
+  box-shadow:0 12px 30px rgba(4,22,38,.2);
+}
+[data-theme="dark"] .focus-dock{background:rgba(13,36,59,.9)}
+.briefing{border-radius:14px}
+.field{border-radius:13px}
+.ghost-btn,.hold-btn{border-radius:12px}
+
+/* Less blocky stone: soften the whole field with atmospheric edges and a quiet vignette. */
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:-1;
+  background:
+    radial-gradient(75% 55% at 50% 35%,transparent 45%,rgba(8,27,45,.12) 100%),
+    linear-gradient(180deg,rgba(255,255,255,.05),transparent 28%,rgba(6,24,40,.08));
+}
+[data-theme="dark"] body::after{
+  background:
+    radial-gradient(75% 55% at 50% 35%,transparent 42%,rgba(0,0,0,.28) 100%),
+    linear-gradient(180deg,rgba(113,178,224,.035),transparent 30%,rgba(0,0,0,.12));
+}
+
+/* Make mounted notes feel gently rounded, not like rigid UI tiles. */
+.task-card .card-tilt{
+  border-radius:18px;
+  clip-path:none;
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+.task-card:nth-child(3n+1) .card-tilt{border-radius:17px 20px 18px 15px}
+.task-card:nth-child(3n+2) .card-tilt{border-radius:20px 16px 18px 19px}
+.task-card:nth-child(3n) .card-tilt{border-radius:15px 19px 17px 20px}
+
+/* Blue pins remain the tiny physical commitment cue. */
+.pin{
+  border-radius:50%!important;
+}
+
+/* Softer focus language: firm, but never punitive. */
+.focus-lock-note{letter-spacing:.12em}
+.focus-whisper{color:#bfd5e7!important}
+.focus-footer{color:#9eb8cd!important}
+.nav-locked{opacity:.38!important;filter:none!important}
+
+/* Keep the bottom dock visually subordinate to the wall. */
+.navbar{
+  background:rgba(7,31,54,.78)!important;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  box-shadow:0 12px 30px rgba(3,20,36,.22)!important;
+}
+.nav-btn.active{background:#2378ca!important}
+@media(max-width:620px){
+  .card-tilt{border-radius:15px}
+  .focus-dock{border-radius:15px}
+  .navbar{border-radius:18px!important}
+}
+
+/* FINAL SOFT NIGHT ROOM: clean, serious, human. */
+:root{--soft-radius:16px;--surface-shadow:0 10px 28px rgba(7,29,49,.16)}
+[data-theme="dark"]{--surface-shadow:0 14px 34px rgba(0,0,0,.28)}
+html,body,button,input,textarea,select{font-family:"Fredoka",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{font-weight:400;letter-spacing:0;-webkit-font-smoothing:antialiased}
+.wordmark{font-weight:700}.metrics{font-weight:500}.section-label{font-weight:600}
+.card-tilt,.focus-dock,.briefing,.panel,.goal-row,.refl-item,.tray,.field,.ghost-btn,.hold-btn,.chip{border-radius:var(--soft-radius)}
+.card-tilt{border-width:1px;box-shadow:var(--surface-shadow)}
+.task-card .card-tilt{border-radius:18px;clip-path:none;transition:transform .18s ease,box-shadow .18s ease}
+.task-card:nth-child(3n+1) .card-tilt{border-radius:17px 20px 18px 15px}
+.task-card:nth-child(3n+2) .card-tilt{border-radius:20px 16px 18px 19px}
+.task-card:nth-child(3n) .card-tilt{border-radius:15px 19px 17px 20px}
+.focus-dock{background:rgba(12,39,65,.88);border-color:rgba(156,198,229,.2);box-shadow:0 12px 30px rgba(4,22,38,.2)}
+[data-theme="dark"] .focus-dock{background:rgba(13,36,59,.9)}
+.briefing{border-radius:14px}.field{border-radius:13px}.ghost-btn,.hold-btn{border-radius:12px}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(75% 55% at 50% 35%,transparent 45%,rgba(8,27,45,.12) 100%),linear-gradient(180deg,rgba(255,255,255,.05),transparent 28%,rgba(6,24,40,.08))}
+[data-theme="dark"] body::after{background:radial-gradient(75% 55% at 50% 35%,transparent 42%,rgba(0,0,0,.28) 100%),linear-gradient(180deg,rgba(113,178,224,.035),transparent 30%,rgba(0,0,0,.12))}
+.pin{border-radius:50%!important;background:radial-gradient(circle at 31% 27%,#e4f4ff 0 9%,#75c3ff 10% 25%,#237fd8 27% 68%,#0d579d 70% 100%)!important}
+.focus-lock-note{letter-spacing:.12em}.focus-whisper{color:#bfd5e7!important}.focus-footer{color:#9eb8cd!important}
+.nav-locked{opacity:.38!important;filter:none!important}
+.navbar{background:rgba(7,31,54,.78)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 30px rgba(3,20,36,.22)!important}
+.nav-btn.active{background:#2378ca!important}
+@media(max-width:620px){.card-tilt{border-radius:15px}.focus-dock{border-radius:15px}.navbar{border-radius:18px!important}}
+
+/* FIX: bottom navigation must be anchored to the viewport, not participate in page flow. */
+.navbar{
+  position:fixed!important;
+  left:50%!important;
+  right:auto!important;
+  bottom:14px!important;
+  top:auto!important;
+  transform:translateX(-50%)!important;
+  width:min(560px,calc(100vw - 24px))!important;
+  z-index:100!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:stretch!important;
+  box-sizing:border-box!important;
+}
+@media(max-width:620px){
+  .navbar{
+    left:8px!important;
+    right:8px!important;
+    bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;
+    transform:none!important;
+    width:auto!important;
+    max-width:none!important;
+  }
+  .wall-viewport{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}
+}
+>>>>>>> ee70ccd9e172706b90ad48e9ee487b53c4b5232f
