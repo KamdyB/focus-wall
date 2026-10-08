@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import "./StudyLab.css";
 
 type Resource = { id: string; title: string; url?: string; area: string; note: string };
 type StudyRecord = { id: string; date: string; resource: string; minutes: number; evidence: string; steps: string[] };
@@ -20,12 +21,12 @@ const RESOURCES: Resource[] = [
 const PIPELINE = ["Concept", "Understand", "Attempt unaided", "Debug", "Reinforce", "Practise", "Build", "Ship"];
 const DURATIONS = [25, 50, 90, 120, 180, 240, 360, 480];
 
-function loadSaved(): { selected: string; completed: string[]; notes: string; records: StudyRecord[] } {
+function loadSaved(): { selected: string; completed: string[]; notes: string; records: StudyRecord[]; customResources: Resource[] } {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { selected: "spiral-matrix", completed: [], notes: "", records: [], ...JSON.parse(raw) };
+    if (raw) return { selected: "spiral-matrix", completed: [], notes: "", records: [], customResources: [], ...JSON.parse(raw) };
   } catch { /* storage may be unavailable */ }
-  return { selected: "spiral-matrix", completed: [], notes: "", records: [] };
+  return { selected: "spiral-matrix", completed: [], notes: "", records: [], customResources: [] };
 }
 
 export default function StudyLab() {
@@ -37,8 +38,7 @@ export default function StudyLab() {
   const [customTitle, setCustomTitle] = useState("");
   const [customUrl, setCustomUrl] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [customResources, setCustomResources] = useState<Resource[]>([]);
-  const resources = useMemo(() => [...RESOURCES, ...customResources], [customResources]);
+  const resources = useMemo(() => [...RESOURCES, ...saved.customResources], [saved.customResources]);
   const current = resources.find((r) => r.id === saved.selected) ?? RESOURCES[0];
   const remaining = Math.max(0, secondsLeft);
   const time = `${String(Math.floor(remaining / 3600)).padStart(2, "0")}:${String(Math.floor((remaining % 3600) / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
@@ -75,8 +75,7 @@ export default function StudyLab() {
     if (!title) return;
     const id = `custom-${Date.now()}`;
     const resource = { id, title, url: customUrl.trim() || undefined, area: "Added by you", note: "Work through it unaided, then record evidence." };
-    setCustomResources((r) => [...r, resource]);
-    patchSaved({ selected: id });
+    patchSaved({ selected: id, customResources: [...saved.customResources, resource] });
     setCustomTitle(""); setCustomUrl(""); setShowAdd(false);
   }
   function exportLog() {
