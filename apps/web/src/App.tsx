@@ -140,6 +140,7 @@ export default function App() {
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [goalDraft, setGoalDraft] = useState<GoalDraft | null>(null);
   const [opps, setOpps] = useState<Opportunity[]>([]);
+  const [oppImportText, setOppImportText] = useState(""); const [oppImportBusy, setOppImportBusy] = useState(false);
   const [oppFilter, setOppFilter] = useState("all");
   const [oTitle, setOTitle] = useState(""); const [oOrg, setOOrg] = useState(""); const [oUrl, setOUrl] = useState("");
   const [oKind, setOKind] = useState("learn"); const [oDeadline, setODeadline] = useState("");
@@ -513,6 +514,53 @@ export default function App() {
       void loadOpps();
     } catch (e) { setToast(e instanceof Error ? e.message : "Failed to create"); }
   }, [oTitle, oKind, oOrg, oUrl, oDeadline, loadOpps]);
+
+  const importOpps = useCallback(async () => {
+    if (oppImportBusy || !oppImportText.trim()) return;
+    setOppImportBusy(true);
+    try {
+      const parsed: unknown = JSON.parse(oppImportText);
+      const items: unknown[] = Array.isArray(parsed)
+        ? parsed
+        : parsed && typeof parsed === "object" && Array.isArray((parsed as { opportunities?: unknown[] }).opportunities)
+          ? (parsed as { opportunities: unknown[] }).opportunities
+          : [];
+      if (!items.length) throw new Error("Paste a JSON array of opportunities, or an object with an opportunities array.");
+      const normal = (value: unknown) => String(value ?? "").trim().toLocaleLowerCase();
+      const seen = new Set(opps.map((o) => [normal(o.title), normal(o.organisation), normal(o.url)].join("|")));
+      let created = 0;
+      let skipped = 0;
+      const failures: string[] = [];
+      for (const raw of items) {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) { skipped++; continue; }
+        const item = raw as Record<string, unknown>;
+        const title = typeof item.title === "string" ? item.title.trim() : "";
+        if (!title) { skipped++; continue; }
+        const organisation = typeof item.organisation === "string" ? item.organisation.trim() : "";
+        const url = typeof item.url === "string" ? item.url.trim() : "";
+        const key = [normal(title), normal(organisation), normal(url)].join("|");
+        if (seen.has(key)) { skipped++; continue; }
+        const kind = ["learn", "compete", "earn", "other"].includes(String(item.kind)) ? String(item.kind) : "learn";
+        const deadline = typeof item.deadline === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(item.deadline) ? item.deadline : undefined;
+        const notes = typeof item.notes === "string" ? item.notes : "";
+        try {
+          await createOpportunity({ title, kind, organisation: organisation || undefined, url: url || undefined, deadline, notes: notes || undefined });
+          seen.add(key);
+          created++;
+        } catch (error) {
+          failures.push(`${title}: ${error instanceof Error ? error.message : "save failed"}`);
+        }
+      }
+      await loadOpps();
+      setOppImportText(failures.length ? oppImportText : "");
+      setToast(`Import finished: ${created} saved, ${skipped} skipped as duplicates/invalid, ${failures.length} failed.${failures.length ? " Check the import box and retry failed items." : ""}`);
+      if (failures.length) console.warn("Focus Wall opportunity import failures", failures);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Import failed. Check the JSON format.");
+    } finally {
+      setOppImportBusy(false);
+    }
+  }, [oppImportBusy, oppImportText, opps, loadOpps]);
 
   const advance = useCallback(async (o: Opportunity, to: string) => {
     try {
@@ -980,6 +1028,11 @@ export default function App() {
             </div>
           ))}
           {opps.length === 0 && <p className="empty-note">The horizon is clear. Log something below.</p>}
+
+          <div className="section-label">Bulk import — keep your pipeline data-driven</div>
+          <p className="empty-note">Paste a JSON array copied from your opportunity tracker or prepared from your notes. Items are saved to your authenticated cloud database, not compiled into the app. Existing title/organisation/link matches are skipped; failed items stay in the box so you can retry.</p>
+          <textarea className="field" rows={7} aria-label="Bulk opportunity JSON" placeholder={'[{"title":"Opportunity name","kind":"learn","organisation":"Organisation","url":"https://example.org","deadline":"2026-10-30","notes":"Eligibility, funding, next action, source"}]'} value={oppImportText} onChange={(e) => setOppImportText(e.target.value)} />
+          <button className="ghost-btn" disabled={oppImportBusy || !oppImportText.trim()} onClick={() => void importOpps()}>{oppImportBusy ? "IMPORTING…" : "IMPORT OPPORTUNITIES TO CLOUD"}</button>
 
           <div className="section-label">Log opportunity — paste any link</div>
           <input className="field" placeholder="Title" value={oTitle} onChange={(e) => setOTitle(e.target.value)} />
