@@ -217,6 +217,21 @@ export function getStudyProgress(): Promise<StudyProgressResponse> {
 export function saveStudyProgress(progress: StudyProgress): Promise<{ saved: boolean; progress: StudyProgress; updated_at: string }> {
   return request("/study-lab/progress", { method: "PUT", body: JSON.stringify(progress) });
 }
+export type StudyCloudState = {
+  selected: string;
+  completed: string[];
+  notes: string;
+  records: Array<{ id: string; date: string; resource: string; minutes: number; evidence: string; steps: string[] }>;
+  customResources: Array<{ id: string; title: string; url?: string; area: string; note: string }>;
+  updatedAt: number;
+};
+export type StudyCloudResponse = { data: StudyCloudState | null; updated_at: string | null; source: string; progress?: StudyProgress | null };
+export function getStudyCloudState(): Promise<StudyCloudResponse> {
+  return request<StudyCloudResponse>("/study-lab/state");
+}
+export function saveStudyCloudState(data: StudyCloudState): Promise<{ saved: boolean; data: StudyCloudState; updated_at: string; bytes: number }> {
+  return request("/study-lab/state", { method: "PUT", body: JSON.stringify({ data }) });
+}
 export function deleteLegacyStudySnapshot(): Promise<{ deleted: boolean; message: string }> {
   return request("/study-lab/legacy-snapshot", { method: "DELETE" });
 }
