@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap");
 
 /* ============ The Bedrock / The Shore — dual-tone ============ */
 :root {
@@ -390,7 +390,6 @@ button.pin {
   cursor: pointer;
 }
 
-<<<<<<< HEAD
 /* ---- AI triage panel ---- */
 .ai-panel {
   margin-top: 10px;
@@ -425,7 +424,6 @@ button.pin {
 }
 .ai-action:last-of-type { border-bottom: none; }
 .ai-meta { margin-top: 8px; font-size: 11px; opacity: 0.5; }
-=======
 
 /* ============================================================
    BLOSSOM BLUE WALL — visual layer
@@ -885,7 +883,6 @@ body::before{opacity:.13!important}
 
 
 /* READABILITY + FRIENDLY TYPE — final visual pass. */
-@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap");
 
 /* One approachable family throughout; the interface should feel human, not corporate. */
 html,body,button,input,select,textarea{
