@@ -203,12 +203,26 @@ export function dismissItem(id: string): Promise<unknown> {
   return request(`/radar/${id}/dismiss`, { method: "POST" });
 }
 
-export type StudyLabCloudState = { data: Record<string, unknown> | null; updated_at: string | null };
-export function getStudyLabState(): Promise<StudyLabCloudState> {
-  return request<StudyLabCloudState>("/study-lab");
+export type StudyProgress = {
+  version: number;
+  selected_resource: string;
+  completed_stages: string[];
+  session_count: number;
+  logged_minutes: number;
+};
+export type StudyProgressResponse = { progress: StudyProgress | null; updated_at: string | null };
+export function getStudyProgress(): Promise<StudyProgressResponse> {
+  return request<StudyProgressResponse>("/study-lab/progress");
 }
-export function saveStudyLabState(data: Record<string, unknown>): Promise<{ saved: boolean; updated_at: string }> {
-  return request("/study-lab", { method: "PUT", body: JSON.stringify({ data }) });
+export function saveStudyProgress(progress: StudyProgress): Promise<{ saved: boolean; progress: StudyProgress; updated_at: string }> {
+  return request("/study-lab/progress", { method: "PUT", body: JSON.stringify(progress) });
+}
+export function deleteLegacyStudySnapshot(): Promise<{ deleted: boolean; message: string }> {
+  return request("/study-lab/legacy-snapshot", { method: "DELETE" });
+}
+export type StudyCoachReply = { reply: string; model: string };
+export function askStudyCoach(payload: { question: string; resource: string; stages: string[] }): Promise<StudyCoachReply> {
+  return request("/ai/study-coach", { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function createLog(payload: {
