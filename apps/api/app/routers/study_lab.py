@@ -39,8 +39,8 @@ class StudyState(BaseModel):
     selected: str = Field(default="spiral-matrix", max_length=100)
     completed: list[str] = Field(default_factory=list, max_length=8)
     notes: str = Field(default="", max_length=50000)
-    records: list[StudyRecord] = Field(default_factory=list, max_length=100)
-    customResources: list[StudyResource] = Field(default_factory=list, max_length=100)
+    records: list[StudyRecord] = Field(default_factory=list, max_length=2000)
+    customResources: list[StudyResource] = Field(default_factory=list, max_length=1000)
     updatedAt: int = Field(default=0, ge=0)
 
 
