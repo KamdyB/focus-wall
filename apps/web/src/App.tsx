@@ -632,7 +632,7 @@ export default function App() {
     return groups;
   }, [opps]);
 
-  if (needsLogin) {
+  if (needsLogin && view !== "study") {
     return (
       <main className="panel" style={{ paddingTop: "16vh" }}>
         <div className="section-label">Sign in</div>
@@ -641,6 +641,7 @@ export default function App() {
           onKeyDown={(e) => { if (e.key === "Enter") void doLogin(); }} />
         {loginErr && <p className="empty-note">{loginErr}</p>}
         <button className="ghost-btn" onClick={() => void doLogin()}>UNLOCK</button>
+        <button className="chip" style={{ marginTop: 10 }} onClick={() => setView("study")}>OPEN OFFLINE STUDY LAB</button>
       </main>
     );
   }
