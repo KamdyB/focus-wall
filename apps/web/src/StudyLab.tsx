@@ -103,8 +103,8 @@ export default function StudyLab() {
           selected: cloudIsNewer ? cloud.selected : local.selected,
           completed: [...new Set([...cloud.completed, ...local.completed])],
           notes: cloudIsNewer ? cloud.notes : local.notes,
-          records: [...recordMap.values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 100),
-          customResources: [...resourceMap.values()].slice(-100),
+          records: [...recordMap.values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
+          customResources: [...resourceMap.values()],
           updatedAt: Math.max(cloud.updatedAt, local.updatedAt, Date.now()),
         };
       });
@@ -131,8 +131,8 @@ export default function StudyLab() {
           selected: cloudUpdatedAt > saved.updatedAt ? cloud.selected : saved.selected,
           completed: [...new Set([...(cloud.completed || []), ...saved.completed, ...(remote.progress?.completed_stages || [])])],
           notes: cloudUpdatedAt > saved.updatedAt ? cloud.notes : saved.notes,
-          records: [...new Map([...(cloud.records || []), ...saved.records].map((record) => [record.id, record])).values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 100),
-          customResources: [...new Map([...(cloud.customResources || []), ...saved.customResources].map((resource) => [resource.id, resource])).values()].slice(-100),
+          records: [...new Map([...(cloud.records || []), ...saved.records].map((record) => [record.id, record])).values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
+          customResources: [...new Map([...(cloud.customResources || []), ...saved.customResources].map((resource) => [resource.id, resource])).values()],
           updatedAt: Math.max(cloudUpdatedAt, saved.updatedAt),
         } : {
           ...saved,
@@ -170,7 +170,7 @@ export default function StudyLab() {
     if (!note) return;
     const elapsed = secondsLeft > 0 ? Math.max(1, minutes - Math.ceil(secondsLeft / 60)) : minutes;
     const record: StudyRecord = { id: `${Date.now()}`, date: new Date().toISOString(), resource: current.title, minutes: elapsed, evidence: note, steps: [...saved.completed] };
-    patchSaved({ records: [record, ...saved.records].slice(0, 100), notes: saved.notes });
+    patchSaved({ records: [record, ...saved.records], notes: saved.notes });
     setEvidence("");
     resetTimer();
   }
@@ -201,8 +201,8 @@ export default function StudyLab() {
         selected: cloudUpdatedAt > saved.updatedAt ? cloud.selected : saved.selected,
         completed: [...new Set([...(cloud.completed || []), ...saved.completed, ...(remote.progress?.completed_stages || [])])],
         notes: cloudUpdatedAt > saved.updatedAt ? cloud.notes : saved.notes,
-        records: [...new Map([...(cloud.records || []), ...saved.records].map((record) => [record.id, record])).values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 100),
-        customResources: [...new Map([...(cloud.customResources || []), ...saved.customResources].map((resource) => [resource.id, resource])).values()].slice(-100),
+        records: [...new Map([...(cloud.records || []), ...saved.records].map((record) => [record.id, record])).values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
+        customResources: [...new Map([...(cloud.customResources || []), ...saved.customResources].map((resource) => [resource.id, resource])).values()],
         updatedAt: Math.max(cloudUpdatedAt, saved.updatedAt, Date.now()),
       } : {
         ...saved,
