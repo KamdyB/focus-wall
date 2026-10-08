@@ -243,7 +243,7 @@ export default function StudyLab() {
       </div>
       <div className="section-label">Today's starting point</div>
       <label className="study-label" htmlFor="study-resource">Resource / problem</label>
-      <select id="study-resource" className="field" value={saved.selected} onChange={(e) => { patchSaved({ selected: e.target.value, completed: [], notes: "" }); setEvidence(""); resetTimer(); }}>
+      <select id="study-resource" className="field" value={saved.selected} onChange={(e) => { patchSaved({ selected: e.target.value }); setEvidence(""); resetTimer(); }}>
         {resources.map((r) => <option key={r.id} value={r.id}>{r.area} — {r.title}</option>)}
       </select>
       <article className="study-resource">
