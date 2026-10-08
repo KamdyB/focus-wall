@@ -88,7 +88,7 @@ export default function StudyLab() {
     setCustomTitle(""); setCustomUrl(""); setShowAdd(false);
   }
   function exportLog() {
-    const payload = JSON.stringify({ exportedAt: new Date().toISOString(), saved, customResources }, null, 2);
+    const payload = JSON.stringify({ exportedAt: new Date().toISOString(), saved }, null, 2);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "focus-wall-study-log.json"; a.click();
