@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getStudyLabState, saveStudyLabState } from "./lib/api";
 import "./StudyLab.css";
 
 type Resource = { id: string; title: string; url?: string; area: string; note: string };
@@ -47,6 +48,8 @@ export default function StudyLab() {
   const [customTitle, setCustomTitle] = useState("");
   const [customUrl, setCustomUrl] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState("Saved locally on this device.");
+  const [cloudBusy, setCloudBusy] = useState(false);
   const resources = useMemo(() => [...RESOURCES, ...saved.customResources], [saved.customResources]);
   const current = resources.find((r) => r.id === saved.selected) ?? RESOURCES[0];
   const remaining = Math.max(0, secondsLeft);
@@ -93,6 +96,44 @@ export default function StudyLab() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "focus-wall-study-log.json"; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function saveToNeon() {
+    setCloudBusy(true);
+    setCloudStatus("Checking Neon for an existing snapshot…");
+    try {
+      const remote = await getStudyLabState();
+      if (remote.data && !window.confirm("A Study Lab snapshot already exists in Neon. Replace it with this device's snapshot? Export a backup first if unsure.")) {
+        setCloudStatus("Neon unchanged. Your local work is safe on this device.");
+        return;
+      }
+      const result = await saveStudyLabState({ version: 1, saved });
+      setCloudStatus("Saved to Neon successfully · " + new Date(result.updated_at).toLocaleString());
+    } catch (error) {
+      setCloudStatus("Neon sync failed; your local copy remains saved. " + (error instanceof Error ? error.message : "Check connection/sign-in."));
+    } finally { setCloudBusy(false); }
+  }
+
+  async function loadFromNeon() {
+    setCloudBusy(true);
+    setCloudStatus("Reading your Neon snapshot…");
+    try {
+      const remote = await getStudyLabState();
+      const payload = remote.data as { version?: number; saved?: typeof saved } | null;
+      if (!payload?.saved || !Array.isArray(payload.saved.records) || !Array.isArray(payload.saved.customResources)) {
+        setCloudStatus("No valid Study Lab snapshot found in Neon. Your local work was not changed.");
+        return;
+      }
+      const hasLocalWork = saved.records.length > 0 || saved.notes.trim().length > 0 || saved.customResources.length > 0 || saved.completed.length > 0;
+      if (hasLocalWork && !window.confirm("Loading from Neon will replace the current browser Study Lab state. Export a backup first if you need both. Continue?")) {
+        setCloudStatus("Restore cancelled. Your local work is unchanged.");
+        return;
+      }
+      setSaved(payload.saved);
+      setCloudStatus("Loaded from Neon. The browser copy will now update.");
+    } catch (error) {
+      setCloudStatus("Neon restore failed; your local copy remains saved. " + (error instanceof Error ? error.message : "Check connection/sign-in."));
+    } finally { setCloudBusy(false); }
   }
 
   return (
@@ -143,7 +184,10 @@ export default function StudyLab() {
       <div className="study-actions">
         <button className="ghost-btn" onClick={logEvidence} disabled={!evidence.trim() && !saved.notes.trim()}>LOG EVIDENCE</button>
         <button className="chip" onClick={exportLog}>EXPORT LOG</button>
+        <button className="chip" onClick={saveToNeon} disabled={cloudBusy}>{cloudBusy ? "SYNCING…" : "SAVE TO NEON"}</button>
+        <button className="chip" onClick={loadFromNeon} disabled={cloudBusy}>{cloudBusy ? "SYNCING…" : "RESTORE FROM NEON"}</button>
         <button className="chip" onClick={() => setShowAdd((v) => !v)}>{showAdd ? "CANCEL" : "ADD RESOURCE"}</button>
+        <p className="study-muted" role="status" aria-live="polite">{cloudStatus}</p>
       </div>
       {showAdd && <div className="study-add-resource">
         <input className="field" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="Resource or exact problem title" />
