@@ -8,6 +8,7 @@ from app.routers import ai, daily, focus, goals, logs, opportunities, quick_capt
 from app.routers import auth as auth_router
 from app.routers import maintenance
 from app.routers import settings as settings_router
+from app.routers import study_lab as study_lab_router
 from app.routers.auth import verify_session
 
 def _optional_router(module_name: str):
@@ -61,6 +62,7 @@ app.include_router(opportunities.router, dependencies=[Depends(auth)])
 app.include_router(radar.router, dependencies=[Depends(auth)])
 app.include_router(logs.router, dependencies=[Depends(auth)])
 app.include_router(settings_router.router, dependencies=[Depends(auth)])
+app.include_router(study_lab_router.router, dependencies=[Depends(auth)])
 app.include_router(quick_capture.router, dependencies=[Depends(auth)])
 app.include_router(maintenance.router, dependencies=[Depends(auth)])
 app.include_router(daily.router, dependencies=[Depends(auth)])

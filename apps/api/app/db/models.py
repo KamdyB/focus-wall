@@ -207,3 +207,10 @@ class AiInsight(Base):
     actions: Mapped[str] = mapped_column(Text, default="[]")    # JSON array of short imperatives
     model: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+class StudyLabState(Base):
+    """Single-user Study Lab snapshot; persisted in the configured PostgreSQL/Neon database."""
+    __tablename__ = "study_lab_state"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    data: Mapped[str] = mapped_column(Text, default="{}")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
