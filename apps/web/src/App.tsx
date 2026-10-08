@@ -13,8 +13,9 @@ import type {
   Reflection, Task, WatchFeed,
 } from "./types";
 import { playChime, unlockChime } from "./lib/chime";
+import StudyLab from "./StudyLab";
 
-type View = "wall" | "focus" | "goals" | "opps" | "more";
+type View = "wall" | "focus" | "study" | "goals" | "opps" | "more";
 type FocusState = { task: Task; secondsLeft: number; sessionId: string | null };
 type EditDraft = { what: string; minutes: number; recur: string };
 type GoalDraft = { title: string; why: string; lane: string; cost: number; due: string };
@@ -85,6 +86,7 @@ function HoldButton({ locked, onEngaged }: { locked: boolean; onEngaged: () => v
 const NAV_HINTS: Record<View, string> = {
   wall: "Wall — today's blocks, planner's pick",
   focus: "Focus — the running session",
+  study: "Study Lab — independent practice, timer and evidence log",
   goals: "Goals — the why behind your blocks",
   opps: "Opportunities — radar, feeds and pipeline",
   more: "More — theme, daily reflection, profile, utility",
@@ -119,6 +121,7 @@ function NavButton({ active, locked, hint, onGo, children }: { active: boolean; 
 const GLYPHS: Record<View, ReactNode> = {
   wall: <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 10h16M4 15h16M10 5v5M16 10v5M9 15v4" /></svg>,
   focus: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></svg>,
+  study: <svg viewBox="0 0 24 24"><path d="M3 5.5 12 2l9 3.5-9 3.5zM5 8v6c4 3 10 3 14 0V8M21 6v8" /><path d="M21 14v4" /></svg>,
   goals: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.2" /><circle cx="12" cy="12" r="1.3" /></svg>,
   opps: <svg viewBox="0 0 24 24"><path d="M4 7.5h16v11H4zM4 12h5l1.5 2h3l1.5-2h5M7 7.5l1-3h8l1 3" /></svg>,
   more: <svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" /><circle cx="12" cy="12" r="3.2" /></svg>,
@@ -800,6 +803,8 @@ export default function App() {
         </main>
       )}
 
+      {view === "study" && <StudyLab />}
+
       {view === "goals" && (
         <main className="panel">
           <div className="chip-row">
@@ -1047,11 +1052,11 @@ export default function App() {
       )}
 
       <nav className="navbar">
-        {(["wall", "focus", "goals", "opps", "more"] as View[]).map((v) => {
+        {(["wall", "focus", "study", "goals", "opps", "more"] as View[]).map((v) => {
           const navLocked = Boolean(focus && v !== "focus");
           return (
             <NavButton key={v} active={view === v} locked={navLocked} hint={navLocked ? "Locked in — finish the block before leaving focus." : NAV_HINTS[v]} onGo={() => setView(v)}>
-              {GLYPHS[v]}<span className="nav-label">{v === "opps" ? "RADAR" : v.toUpperCase()}</span>
+              {GLYPHS[v]}<span className="nav-label">{v === "opps" ? "RADAR" : v === "study" ? "STUDY" : v.toUpperCase()}</span>
             </NavButton>
           );
         })}
