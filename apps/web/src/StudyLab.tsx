@@ -68,16 +68,26 @@ export default function StudyLab() {
   // replacing so a device with offline work cannot erase existing cloud evidence.
   useEffect(() => {
     let alive = true;
-    getStudyCloudState().then(({ data, updated_at }) => {
+    getStudyCloudState().then(({ data, updated_at, progress }) => {
       if (!alive) return;
       if (!data) {
-        setCloudStatus("No full cloud study record yet. Your local work is preserved and will sync.");
+        if (progress) {
+          setSaved((local) => ({
+            ...local,
+            selected: local.updatedAt > 0 ? local.selected : (progress.selected_resource || local.selected),
+            completed: [...new Set([...local.completed, ...(progress.completed_stages || [])])],
+            updatedAt: Math.max(local.updatedAt, updated_at ? Date.parse(updated_at) || 0 : 0, Date.now()),
+          }));
+          setCloudStatus("Recovered earlier cloud progress. Full notes and evidence will now sync across devices.");
+        } else {
+          setCloudStatus("No full cloud study record yet. Your local work is preserved and will sync.");
+        }
         setCloudReady(true);
         return;
       }
       const cloud: StudySaved = {
         selected: data.selected || "spiral-matrix",
-        completed: Array.isArray(data.completed) ? data.completed : [],
+        completed: [...new Set([...(Array.isArray(data.completed) ? data.completed : []), ...(progress?.completed_stages || [])])],
         notes: typeof data.notes === "string" ? data.notes : "",
         records: Array.isArray(data.records) ? data.records : [],
         customResources: Array.isArray(data.customResources) ? data.customResources : [],
