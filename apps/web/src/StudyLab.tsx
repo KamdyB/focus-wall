@@ -121,12 +121,31 @@ export default function StudyLab() {
 
   useEffect(() => {
     if (!cloudReady) return;
-    const id = window.setTimeout(() => {
-      saveStudyCloudState(saved).then(() => {
-        setCloudStatus("Full Study Lab synced across devices, including notes, custom resources and evidence.");
-      }).catch((error) => {
-        setCloudStatus("Saved locally on this device. Cloud sync failed; export a backup and check sign-in/connection. " + (error instanceof Error ? error.message : ""));
-      });
+    const id = window.setTimeout(async () => {
+      try {
+        // Read before every write so a second device's newer evidence is merged, not blindly overwritten.
+        const remote = await getStudyCloudState();
+        const cloud = remote.data;
+        const cloudUpdatedAt = cloud ? (Number(cloud.updatedAt) || (remote.updated_at ? Date.parse(remote.updated_at) : 0)) : 0;
+        const merged: StudySaved = cloud ? {
+          selected: cloudUpdatedAt > saved.updatedAt ? cloud.selected : saved.selected,
+          completed: [...new Set([...(cloud.completed || []), ...saved.completed, ...(remote.progress?.completed_stages || [])])],
+          notes: cloudUpdatedAt > saved.updatedAt ? cloud.notes : saved.notes,
+          records: [...new Map([...(cloud.records || []), ...saved.records].map((record) => [record.id, record])).values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 100),
+          customResources: [...new Map([...(cloud.customResources || []), ...saved.customResources].map((resource) => [resource.id, resource])).values()].slice(-100),
+          updatedAt: Math.max(cloudUpdatedAt, saved.updatedAt),
+        } : {
+          ...saved,
+          selected: saved.updatedAt > 0 ? saved.selected : (remote.progress?.selected_resource || saved.selected),
+          completed: [...new Set([...saved.completed, ...(remote.progress?.completed_stages || [])])],
+          updatedAt: saved.updatedAt,
+        };
+        if (JSON.stringify(merged) !== JSON.stringify(saved)) setSaved(merged);
+        await saveStudyCloudState(merged);
+        setCloudStatus("Full Study Lab synced across devices, including notes, attempts and evidence.");
+      } catch (error) {
+        setCloudStatus("Saved locally on this device. Cloud read/sync failed; no unsafe overwrite was attempted. Export a backup and retry when online. " + (error instanceof Error ? error.message : ""));
+      }
     }, 1400);
     return () => window.clearTimeout(id);
   }, [cloudReady, saved]);
