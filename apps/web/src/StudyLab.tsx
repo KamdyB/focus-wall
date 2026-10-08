@@ -112,8 +112,8 @@ export default function StudyLab() {
       setCloudReady(true);
     }).catch(() => {
       if (alive) {
-        setCloudStatus("Could not load cloud study data. Local data is preserved; check sign-in/connection before relying on cross-device sync.");
-        setCloudReady(true);
+        // Never write after a failed read: we cannot safely know what is already in the cloud.
+        setCloudStatus("Cloud read failed. Local data is safe; reconnect/sign in, then use SYNC ALL STUDY DATA to merge safely.");
       }
     });
     return () => { alive = false; };
@@ -171,14 +171,32 @@ export default function StudyLab() {
     URL.revokeObjectURL(url);
   }
 
-  async function removeLegacySnapshot() {
-    if (!window.confirm("Delete the old full Study Lab snapshot from Neon, if one exists? This only deletes the old Study Lab snapshot; it does not delete your local data or other Focus Wall data. Export a local backup first if you need that old snapshot.")) return;
+  async function syncAllNow() {
     setCloudBusy(true);
+    setCloudStatus("Reading cloud data before merging…");
     try {
-      const result = await deleteLegacyStudySnapshot();
-      setCloudStatus(result.deleted ? "Old full Study Lab snapshot deleted from Neon. Local notes and evidence are unchanged." : result.message);
+      const remote = await getStudyCloudState();
+      const cloud = remote.data;
+      const cloudUpdatedAt = cloud ? (Number(cloud.updatedAt) || (remote.updated_at ? Date.parse(remote.updated_at) : 0)) : 0;
+      const merged: StudySaved = cloud ? {
+        selected: cloudUpdatedAt > saved.updatedAt ? cloud.selected : saved.selected,
+        completed: [...new Set([...(cloud.completed || []), ...saved.completed, ...(remote.progress?.completed_stages || [])])],
+        notes: cloudUpdatedAt > saved.updatedAt ? cloud.notes : saved.notes,
+        records: [...new Map([...(cloud.records || []), ...saved.records].map((record) => [record.id, record])).values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 100),
+        customResources: [...new Map([...(cloud.customResources || []), ...saved.customResources].map((resource) => [resource.id, resource])).values()].slice(-100),
+        updatedAt: Math.max(cloudUpdatedAt, saved.updatedAt, Date.now()),
+      } : {
+        ...saved,
+        selected: saved.updatedAt > 0 ? saved.selected : (remote.progress?.selected_resource || saved.selected),
+        completed: [...new Set([...saved.completed, ...(remote.progress?.completed_stages || [])])],
+        updatedAt: Math.max(saved.updatedAt, Date.now()),
+      };
+      setSaved(merged);
+      await saveStudyCloudState(merged);
+      setCloudReady(true);
+      setCloudStatus("Full Study Lab synced across devices. Local and cloud evidence were merged.");
     } catch (error) {
-      setCloudStatus("Could not delete the old snapshot. Local data is unchanged. " + (error instanceof Error ? error.message : "check connection/sign-in."));
+      setCloudStatus("Sync failed; local data is safe. Check connection/sign-in before retrying. " + (error instanceof Error ? error.message : ""));
     } finally { setCloudBusy(false); }
   }
 
@@ -244,8 +262,7 @@ export default function StudyLab() {
       <div className="study-actions">
         <button className="ghost-btn" onClick={logEvidence} disabled={!evidence.trim() && !saved.notes.trim()}>LOG EVIDENCE</button>
         <button className="chip" onClick={exportLog}>EXPORT LOCAL BACKUP</button>
-        <button className="chip" onClick={async () => { setCloudBusy(true); try { await saveStudyCloudState({ ...saved, updatedAt: Date.now() }); setCloudStatus("Full Study Lab synced across devices."); } catch (error) { setCloudStatus("Sync failed; local data remains. " + (error instanceof Error ? error.message : "")); } finally { setCloudBusy(false); } }} disabled={cloudBusy}>{cloudBusy ? "SYNCING…" : "SYNC ALL STUDY DATA"}</button>
-        <button className="chip" onClick={removeLegacySnapshot} disabled={cloudBusy}>DELETE OLD CLOUD SNAPSHOT</button>
+        <button className="chip" onClick={syncAllNow} disabled={cloudBusy}>{cloudBusy ? "SYNCING…" : "SYNC ALL STUDY DATA"}</button>
         <button className="chip" onClick={() => setShowAdd((v) => !v)}>{showAdd ? "CANCEL" : "ADD RESOURCE"}</button>
         <p className="study-muted" role="status" aria-live="polite">{cloudStatus}</p>
       </div>
