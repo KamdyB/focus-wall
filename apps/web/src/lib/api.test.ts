@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { askStudyCoach, getStudyProgress, saveStudyProgress } from "./api";
+import { askStudyCoach, getStudyCloudState, getStudyProgress, saveStudyCloudState, saveStudyProgress } from "./api";
 
 const fetchMock = vi.fn();
 
