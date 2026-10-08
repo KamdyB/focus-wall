@@ -25,9 +25,6 @@ const RESOURCES: Resource[] = [
   { id: "system-design-interview", title: "Hello Interview — system design guides", url: "https://www.hellointerview.com/learn/system-design/in-a-hurry/introduction", area: "System design", note: "Practise requirements, APIs, data model, scaling and trade-offs on paper before reviewing." },
   { id: "podcast-data-skeptic", title: "Data Skeptic podcast", url: "https://dataskeptic.com/", area: "Podcast / research", note: "After an episode, write the claim, evidence, assumptions and one question to investigate." },
   { id: "podcast-softeng", title: "Software Engineering Daily podcast", url: "https://softwareengineeringdaily.com/", area: "Podcast / software engineering", note: "Treat episodes as prompts for follow-up reading and a short technical explanation." },
-  { id: "think-python", title: "Think Python — free book", url: "https://greenteapress.com/wp/think-python-3rd-edition/", area: "Book", note: "Read a chapter actively; answer exercises in your own file before looking at solutions." },
-  { id: "mit-algorithms", title: "MIT OpenCourseWare — Introduction to Algorithms", url: "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/", area: "Algorithms", note: "Use lecture notes and problem sets to deepen complexity and algorithmic reasoning." },
-  { id: "visualgo", title: "VisuAlgo", url: "https://visualgo.net/en", area: "Visualisation", note: "Predict each step before animating it; then reproduce the algorithm on paper." },
   { id: "charka", title: "Charka AI — shared in your study group", area: "Interview practice", note: "URL not verified. Add the exact link manually if you want it tracked; do not rely on it for unaided practice." },
 ];
 const PIPELINE = ["Concept", "Understand", "Attempt unaided", "Debug", "Reinforce", "Practise", "Build", "Ship"];
