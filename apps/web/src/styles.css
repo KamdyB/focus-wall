@@ -1202,4 +1202,3 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;bac
   }
   .wall-viewport{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}
 }
->>>>>>> ee70ccd9e172706b90ad48e9ee487b53c4b5232f
