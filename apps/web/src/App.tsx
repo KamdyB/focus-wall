@@ -541,7 +541,7 @@ export default function App() {
         const key = [normal(title), normal(organisation), normal(url)].join("|");
         if (seen.has(key)) { skipped++; continue; }
         const kind = ["learn", "compete", "earn", "other"].includes(String(item.kind)) ? String(item.kind) : "learn";
-        const deadline = typeof item.deadline === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(item.deadline) ? item.deadline : undefined;
+        const deadline = typeof item.deadline === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.deadline) ? item.deadline : undefined;
         const notes = typeof item.notes === "string" ? item.notes : "";
         try {
           await createOpportunity({ title, kind, organisation: organisation || undefined, url: url || undefined, deadline, notes: notes || undefined });
