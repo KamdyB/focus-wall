@@ -11,7 +11,7 @@ from app.db.models import StudyLabState
 from app.db.session import get_session
 
 router = APIRouter(prefix="/study-lab", tags=["study-lab"])
-MAX_STATE_BYTES = 400_000
+MAX_STATE_BYTES = 1_500_000
 ALLOWED_STAGES = {"Concept", "Understand", "Attempt unaided", "Debug", "Reinforce", "Practise", "Build", "Ship"}
 
 
@@ -111,7 +111,7 @@ async def save_state(payload: StudyStateIn, db: AsyncSession = Depends(get_sessi
             raise HTTPException(status_code=422, detail="Unknown mastery stage in evidence record")
     encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     if len(encoded.encode("utf-8")) > MAX_STATE_BYTES:
-        raise HTTPException(status_code=413, detail="Study data exceeds 400 KB. Export a backup and shorten old notes before syncing.")
+        raise HTTPException(status_code=413, detail="Study data exceeds 1.5 MB. Export a backup and shorten old notes before syncing.")
     now = datetime.now(timezone.utc)
     stmt = insert(StudyLabState).values(id=2, data=encoded, updated_at=now).on_conflict_do_update(
         index_elements=["id"], set_={"data": encoded, "updated_at": now}
