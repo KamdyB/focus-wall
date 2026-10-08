@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { askStudyCoach, deleteLegacyStudySnapshot, getStudyProgress, saveStudyProgress } from "./lib/api";
+import { askStudyCoach, deleteLegacyStudySnapshot, getStudyCloudState, saveStudyCloudState } from "./lib/api";
 import "./StudyLab.css";
 
 type Resource = { id: string; title: string; url?: string; area: string; note: string };
 type StudyRecord = { id: string; date: string; resource: string; minutes: number; evidence: string; steps: string[] };
+type StudySaved = { selected: string; completed: string[]; notes: string; records: StudyRecord[]; customResources: Resource[]; updatedAt: number };
 const KEY = "fw-study-lab-v1";
 const RESOURCES: Resource[] = [
   { id: "spiral-matrix", title: "Spiral Matrix — solve unaided first", url: "https://leetcode.com/problems/spiral-matrix/", area: "Algorithms", note: "Trace four boundaries; handle single rows/columns; explain why each boundary moves inward." },
@@ -31,16 +32,16 @@ const RESOURCES: Resource[] = [
 const PIPELINE = ["Concept", "Understand", "Attempt unaided", "Debug", "Reinforce", "Practise", "Build", "Ship"];
 const DURATIONS = [25, 50, 90, 120, 180, 240, 360, 480];
 
-function loadSaved(): { selected: string; completed: string[]; notes: string; records: StudyRecord[]; customResources: Resource[] } {
+function loadSaved(): StudySaved {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { selected: "spiral-matrix", completed: [], notes: "", records: [], customResources: [], ...JSON.parse(raw) };
+    if (raw) { const parsed = JSON.parse(raw); return { selected: "spiral-matrix", completed: [], notes: "", records: [], customResources: [], updatedAt: 0, ...parsed }; }
   } catch { /* storage may be unavailable */ }
-  return { selected: "spiral-matrix", completed: [], notes: "", records: [], customResources: [] };
+  return { selected: "spiral-matrix", completed: [], notes: "", records: [], customResources: [], updatedAt: 0 };
 }
 
 export default function StudyLab() {
-  const [saved, setSaved] = useState(loadSaved);
+  const [saved, setSaved] = useState<StudySaved>(loadSaved);
   const [minutes, setMinutes] = useState(90);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [running, setRunning] = useState(false);
@@ -63,50 +64,63 @@ export default function StudyLab() {
     try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch { /* keep the current session usable */ }
   }, [saved]);
 
-  // Fetch only a compact progress summary from the cloud. Detailed notes, code,
-  // custom resources and evidence remain on this device and are never auto-uploaded.
+  // Load the complete Study Lab record before enabling writes. Merge instead of
+  // replacing so a device with offline work cannot erase existing cloud evidence.
   useEffect(() => {
     let alive = true;
-    getStudyProgress().then(({ progress }) => {
+    getStudyCloudState().then(({ data, updated_at }) => {
       if (!alive) return;
-      if (progress) {
-        setSaved((local) => {
-          const localHasHistory = local.records.length > 0 || local.notes.trim().length > 0;
-          const completed = [...new Set([...local.completed, ...progress.completed_stages])];
-          return {
-            ...local,
-            selected: localHasHistory ? local.selected : (progress.selected_resource || local.selected),
-            completed,
-          };
-        });
-        setCloudStatus("Compact progress synced. Notes and evidence remain on this device.");
-      } else {
-        setCloudStatus("No cloud progress yet. Your detailed study data stays on this device.");
+      if (!data) {
+        setCloudStatus("No full cloud study record yet. Your local work is preserved and will sync.");
+        setCloudReady(true);
+        return;
       }
+      const cloud: StudySaved = {
+        selected: data.selected || "spiral-matrix",
+        completed: Array.isArray(data.completed) ? data.completed : [],
+        notes: typeof data.notes === "string" ? data.notes : "",
+        records: Array.isArray(data.records) ? data.records : [],
+        customResources: Array.isArray(data.customResources) ? data.customResources : [],
+        updatedAt: Number(data.updatedAt) || (updated_at ? Date.parse(updated_at) : 0) || 0,
+      };
+      setSaved((local) => {
+        const cloudIsNewer = cloud.updatedAt > local.updatedAt;
+        const recordMap = new Map<string, StudyRecord>();
+        [...cloud.records, ...local.records].forEach((record) => recordMap.set(record.id, record));
+        const resourceMap = new Map<string, Resource>();
+        [...cloud.customResources, ...local.customResources].forEach((resource) => resourceMap.set(resource.id, resource));
+        return {
+          selected: cloudIsNewer ? cloud.selected : local.selected,
+          completed: [...new Set([...cloud.completed, ...local.completed])],
+          notes: cloudIsNewer ? cloud.notes : local.notes,
+          records: [...recordMap.values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 100),
+          customResources: [...resourceMap.values()].slice(-100),
+          updatedAt: Math.max(cloud.updatedAt, local.updatedAt, Date.now()),
+        };
+      });
+      setCloudStatus("Cloud study record loaded. Notes, attempts and evidence are available on this device.");
+      setCloudReady(true);
     }).catch(() => {
-      if (alive) setCloudStatus("Cloud progress unavailable; continuing with this device's local data.");
-    }).finally(() => { if (alive) setCloudReady(true); });
+      if (alive) {
+        setCloudStatus("Could not load cloud study data. Local data is preserved; check sign-in/connection before relying on cross-device sync.");
+        setCloudReady(true);
+      }
+    });
     return () => { alive = false; };
   }, []);
 
   useEffect(() => {
     if (!cloudReady) return;
     const id = window.setTimeout(() => {
-      const progress = {
-        version: 1,
-        selected_resource: saved.selected,
-        completed_stages: saved.completed,
-        session_count: saved.records.length,
-        logged_minutes: saved.records.reduce((sum, record) => sum + record.minutes, 0),
-      };
-      saveStudyProgress(progress).then(() => {
-        setCloudStatus("Progress summary synced across devices. Detailed notes and evidence remain local.");
-      }).catch(() => {
-        setCloudStatus("Local progress saved. Cloud sync unavailable; retry when online and signed in.");
+      saveStudyCloudState(saved).then(() => {
+        setCloudStatus("Full Study Lab synced across devices, including notes, custom resources and evidence.");
+      }).catch((error) => {
+        setCloudStatus("Saved locally on this device. Cloud sync failed; export a backup and check sign-in/connection. " + (error instanceof Error ? error.message : ""));
       });
-    }, 1200);
+    }, 1400);
     return () => window.clearTimeout(id);
-  }, [cloudReady, saved.selected, saved.completed, saved.records]);
+  }, [cloudReady, saved]);
+
   useEffect(() => {
     if (!running) return;
     const id = window.setInterval(() => setSecondsLeft((s) => {
@@ -116,7 +130,7 @@ export default function StudyLab() {
     return () => window.clearInterval(id);
   }, [running]);
 
-  function patchSaved(patch: Partial<typeof saved>) { setSaved((s) => ({ ...s, ...patch })); }
+  function patchSaved(patch: Partial<typeof saved>) { setSaved((s) => ({ ...s, ...patch, updatedAt: Date.now() })); }
   function startTimer() { if (!running) { if (secondsLeft <= 0) setSecondsLeft(minutes * 60); setRunning(true); } }
   function resetTimer() { setRunning(false); setSecondsLeft(0); }
   function toggleStep(step: string) {
@@ -145,24 +159,6 @@ export default function StudyLab() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "focus-wall-study-log.json"; a.click();
     URL.revokeObjectURL(url);
-  }
-
-  async function syncProgressNow() {
-    setCloudBusy(true);
-    setCloudStatus("Syncing compact progress summary…");
-    try {
-      const progress = {
-        version: 1,
-        selected_resource: saved.selected,
-        completed_stages: saved.completed,
-        session_count: saved.records.length,
-        logged_minutes: saved.records.reduce((sum, record) => sum + record.minutes, 0),
-      };
-      await saveStudyProgress(progress);
-      setCloudStatus("Progress summary synced. Notes, code, custom resources and evidence stay local.");
-    } catch (error) {
-      setCloudStatus("Local data remains safe. Progress sync failed: " + (error instanceof Error ? error.message : "check connection/sign-in."));
-    } finally { setCloudBusy(false); }
   }
 
   async function removeLegacySnapshot() {
@@ -195,8 +191,8 @@ export default function StudyLab() {
       <div className="study-hero">
         <div className="section-label">Study lab · offline-first</div>
         <h2>Struggle first. Understand for real.</h2>
-        <p>Detailed notes, attempts, custom resources and evidence stay on this device. Only a small progress summary syncs across devices. Ask the coach for a hint when you are stuck; it will not dump full solutions.</p>
-        <div className="study-hero-meta"><span>{saved.records.length} evidence logs</span><span>{saved.completed.length}/${PIPELINE.length} stages checked</span><span>Detailed data: local</span><span>Cloud: summary only</span></div>
+        <p>Your full Study Lab — notes, attempts, custom resources and evidence — syncs across your devices through your private cloud record. Work offline when needed; reconnect to sync. Ask the coach for a hint when stuck, not a full solution.</p>
+        <div className="study-hero-meta"><span>{saved.records.length} evidence logs</span><span>{saved.completed.length}/${PIPELINE.length} stages checked</span><span>Local-first</span><span>Full cloud sync</span></div>
       </div>
       <div className="section-label">Today's starting point</div>
       <label className="study-label" htmlFor="study-resource">Resource / problem</label>
@@ -238,7 +234,7 @@ export default function StudyLab() {
       <div className="study-actions">
         <button className="ghost-btn" onClick={logEvidence} disabled={!evidence.trim() && !saved.notes.trim()}>LOG EVIDENCE</button>
         <button className="chip" onClick={exportLog}>EXPORT LOCAL BACKUP</button>
-        <button className="chip" onClick={syncProgressNow} disabled={cloudBusy}>{cloudBusy ? "SYNCING…" : "SYNC PROGRESS"}</button>
+        <button className="chip" onClick={async () => { setCloudBusy(true); try { await saveStudyCloudState({ ...saved, updatedAt: Date.now() }); setCloudStatus("Full Study Lab synced across devices."); } catch (error) { setCloudStatus("Sync failed; local data remains. " + (error instanceof Error ? error.message : "")); } finally { setCloudBusy(false); } }} disabled={cloudBusy}>{cloudBusy ? "SYNCING…" : "SYNC ALL STUDY DATA"}</button>
         <button className="chip" onClick={removeLegacySnapshot} disabled={cloudBusy}>DELETE OLD CLOUD SNAPSHOT</button>
         <button className="chip" onClick={() => setShowAdd((v) => !v)}>{showAdd ? "CANCEL" : "ADD RESOURCE"}</button>
         <p className="study-muted" role="status" aria-live="polite">{cloudStatus}</p>
