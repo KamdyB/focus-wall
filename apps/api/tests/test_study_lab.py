@@ -57,6 +57,6 @@ def test_full_state_accepts_notes_records_and_custom_resources_for_cross_device_
     assert payload.data.customResources[0].id == "custom-1"
 
 
-def test_full_state_rejects_unexpected_fields_and_unknown_mastery_stages():
+def test_full_state_rejects_unexpected_fields():
     with pytest.raises(ValidationError):
         StudyStateIn.model_validate({"data": {"notes": "x", "unknown": "should fail"}})
