@@ -70,6 +70,63 @@ const ROADMAP = [
   ]},
 ];
 const PIPELINE = ROADMAP.flatMap((phase) => phase.steps.map((step) => step.id));
+const ALL_STEPS = ROADMAP.flatMap((phase) => phase.steps.map((step, index) => ({ ...step, phaseId: phase.id, phaseTitle: phase.title, index })));
+type Check = { question: string; options: string[]; answer: number; why: string };
+const CHECKS: Record<string, Check[]> = {
+  "python-core": [
+    { question: "Which Python type is a good fit for an ordered collection you need to change?", options: ["tuple", "list", "integer", "boolean"], answer: 1, why: "Lists are mutable sequences." },
+    { question: "What does return do in a function?", options: ["Sends a result back to the caller", "Prints every variable", "Stops the whole computer", "Creates a class"], answer: 0, why: "A return value can be reused or tested by the calling code." },
+    { question: "A dictionary is most useful when you need to…", options: ["Map keys to values", "Store only numbers", "Prevent all changes", "Sort automatically"], answer: 0, why: "Dictionaries map keys to values." },
+    { question: "Why use with open(...) when reading a file?", options: ["It encrypts the file", "It reliably closes the file", "It validates every row", "It prevents all exceptions"], answer: 1, why: "A context manager handles closing even if an error occurs." },
+  ],
+  "problem-solving": [
+    { question: "Before coding a solution, first clarify…", options: ["Input, output and examples", "The final variable names", "The UI colour", "The commit emoji"], answer: 0, why: "Examples and constraints make the problem precise." },
+    { question: "Why test empty and one-item arrays?", options: ["They reveal boundary bugs", "They prove optimal complexity", "They make code shorter", "They replace all other tests"], answer: 0, why: "Boundary inputs expose common off-by-one errors." },
+    { question: "Average dictionary lookup is commonly described as…", options: ["O(1)", "O(n²)", "O(n log n)", "Always O(n)"], answer: 0, why: "Hash-table lookup is average constant time." },
+    { question: "Big-O describes…", options: ["How work scales with input size", "Exact seconds on every laptop", "Number of lines", "Number of bugs"], answer: 0, why: "It describes growth, not machine-specific elapsed time." },
+  ],
+  engineering: [
+    { question: "What helps prevent a fixed bug from returning?", options: ["A regression test", "Deleting the issue", "Renaming the folder", "Skipping tests"], answer: 0, why: "A regression test captures the failure for future runs." },
+    { question: "A useful commit usually contains…", options: ["One coherent change", "Every unfinished idea", "A full duplicate repository", "A vague message only"], answer: 0, why: "Focused commits are easier to review and revert." },
+    { question: "When a test fails, first…", options: ["Reproduce and reduce the failure", "Remove the assertion", "Rewrite the entire app", "Assume the test is wrong"], answer: 0, why: "A minimal failure narrows the likely cause." },
+    { question: "Inspecting git diff helps catch…", options: ["Unrelated edits or accidental secrets", "All future bugs automatically", "Every user need", "Project profitability"], answer: 0, why: "The diff shows exactly what will be committed." },
+  ],
+  data: [
+    { question: "Why inspect missing values before analysis?", options: ["They can bias results or break calculations", "They always improve accuracy", "They prove the data is fake", "They replace validation"], answer: 0, why: "Missingness patterns affect cleaning and conclusions." },
+    { question: "Data leakage means…", options: ["Using information unavailable at prediction time", "A chart has too many labels", "Saving a CSV twice", "A column has a long name"], answer: 0, why: "Leakage makes evaluation look better than real-world performance." },
+    { question: "Correlation alone lets you conclude…", options: ["The variables are associated in this dataset", "One definitely causes the other", "The result generalises everywhere", "The model is unbiased"], answer: 0, why: "Correlation alone does not establish causation." },
+    { question: "Why preserve raw data when cleaning?", options: ["To audit and reproduce transformations", "To avoid documenting choices", "To guarantee no errors", "To make charts unnecessary"], answer: 0, why: "Keeping raw data makes cleaning decisions traceable." },
+  ],
+  sinopia: [
+    { question: "Before applying a published training-load threshold to a new athlete population, you should…", options: ["Check source population, evidence and limitations", "Treat it as a universal medical rule", "Hide the source", "Call it a diagnosis"], answer: 0, why: "Thresholds are context-dependent and are not universal diagnostic rules." },
+    { question: "A responsible risk-support tool should provide…", options: ["A transparent estimate with limitations", "A guaranteed diagnosis", "A promise no injury will occur", "A score without explanation"], answer: 0, why: "Risk tools should communicate uncertainty and preserve human judgement." },
+    { question: "The best scope-control question is…", options: ["Does this solve the defined user problem?", "Could this look impressive?", "Can I add a dashboard too?", "Can I add more libraries?"], answer: 0, why: "A narrow, validated improvement beats unrelated feature growth." },
+    { question: "Athlete-data work should consider…", options: ["Privacy, consent and data provenance", "Only chart colours", "Only model size", "Nothing if data is public"], answer: 0, why: "Public availability does not remove privacy or responsible-use concerns." },
+  ],
+  ml: [
+    { question: "Why create a baseline before tuning a model?", options: ["To have a fair reference point", "To guarantee the model wins", "To avoid tests", "To skip cleaning"], answer: 0, why: "A baseline reveals whether complexity actually helps." },
+    { question: "Fit learned preprocessing…", options: ["On training data within the pipeline", "On all data before splitting", "On the final test set", "Only on labels"], answer: 0, why: "This avoids leaking test-set information." },
+    { question: "Keep a held-out test set untouched to…", options: ["Estimate unseen-data performance more honestly", "Tune until the score is perfect", "Increase training data after every result", "Replace the baseline"], answer: 0, why: "Repeated test-set tuning turns the test set into training feedback." },
+    { question: "High accuracy on imbalanced classes can mislead because…", options: ["A model may ignore the minority class", "Accuracy never works", "It proves leakage", "The data has no labels"], answer: 0, why: "Inspect class balance and suitable precision/recall metrics." },
+  ],
+  specialise: [
+    { question: "An SQL JOIN primarily…", options: ["Combines related rows from tables", "Trains a neural network", "Sorts a Python list", "Creates a commit"], answer: 0, why: "Joins combine records through a relationship." },
+    { question: "A sliding window is useful for…", options: ["Contiguous ranges in a sequence", "Every kind of model", "Encrypting files", "Creating schemas"], answer: 0, why: "Window boundaries can update range information efficiently." },
+    { question: "Expected value is…", options: ["A probability-weighted average outcome", "Always the most likely outcome", "Always the maximum", "Always the median"], answer: 0, why: "Expectation weights outcomes by their probabilities." },
+    { question: "Advanced specialisation makes most sense…", options: ["When foundations and a real project justify it", "Because every track sounds urgent", "Before learning functions", "To avoid current work"], answer: 0, why: "Specialisation should serve a concrete goal and build on foundations." },
+  ],
+};
+function localDay(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function calculateStudyStreak(awards: Record<string, XpAward>): number {
+  const dates = new Set(Object.values(awards).map((award) => award.date));
+  const cursor = new Date();
+  if (!dates.has(localDay(cursor))) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  while (dates.has(localDay(cursor))) { streak++; cursor.setDate(cursor.getDate() - 1); }
+  return streak;
+}
 const DURATIONS = [25, 50, 90, 120, 180, 240, 360, 480];
 
 function loadSaved(): StudySaved {
