@@ -386,7 +386,7 @@ export default function StudyLab() {
     setCoachBusy(true);
     setCoachReply("");
     try {
-      const result = await askStudyCoach({ question, resource: current.title, stages: saved.completed });
+      const result = await askStudyCoach({ question, resource: activeLesson.title, stages: saved.mastered });
       setCoachReply(result.reply);
     } catch (error) {
       setCoachReply(error instanceof Error ? error.message : "The study coach is unavailable. Continue unaided and try later.");
@@ -400,7 +400,7 @@ export default function StudyLab() {
         <div className="section-label">Study lab · offline-first</div>
         <h2>Struggle first. Understand for real.</h2>
         <p>Your full Study Lab — notes, attempts, custom resources and evidence — syncs across your devices through your private cloud record. Work offline when needed; reconnect to sync. Ask the coach for a hint when stuck, not a full solution.</p>
-        <div className="study-hero-meta"><span>{studyXpToday} XP TODAY</span><span>{studyXpTotal} TOTAL XP</span><span>{studyStreakDays} DAY STREAK</span><span>{saved.mastered.length}/{PIPELINE.length} MASTERED</span></div>
+        <div className="study-hero-meta"><span>{studyXpToday} STUDY XP TODAY</span><span>{studyXpTotal} TOTAL STUDY XP</span><span>{studyStreakDays} DAY STUDY STREAK</span><span>{saved.mastered.length}/{PIPELINE.length} MASTERED</span></div>
       </div>
       <div className="study-progress-wrap">
         <div className="study-progress-label"><strong>Your learning world</strong><span>{Math.round((saved.mastered.length / PIPELINE.length) * 100)}% complete</span></div>
