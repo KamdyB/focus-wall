@@ -667,8 +667,9 @@ export default function App() {
   const planned = (wall?.planned as Task[] | undefined) ?? [];
   const smallWins = (wall?.small_wins as Task[] | undefined) ?? [];
   const parked = (wall?.parked as Task[] | undefined) ?? [];
-  const xp = (wall?.xp_today as number | undefined) ?? 0;
-  const streak = (wall?.streak_days as number | undefined) ?? (wall?.streak as number | undefined) ?? 0;
+  // Daily XP and streak are sourced from the daily briefing, not lifetime XP on /wall/today.
+  const xp = briefing?.xp_today ?? 0;
+  const streak = briefing?.streak ?? 0;
   const doneCount = planned.filter((t) => t.status === "done").length;
 
   const trayGroups = useMemo(() => {
