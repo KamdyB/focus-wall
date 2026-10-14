@@ -142,6 +142,7 @@ export default function StudyLab() {
   const [minutes, setMinutes] = useState(90);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [running, setRunning] = useState(false);
+  const [timerStarted, setTimerStarted] = useState(false);
   const [evidence, setEvidence] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customUrl, setCustomUrl] = useState("");
@@ -280,8 +281,8 @@ export default function StudyLab() {
   }, [running]);
 
   function patchSaved(patch: Partial<typeof saved>) { setSaved((s) => ({ ...s, ...patch, updatedAt: Date.now() })); }
-  function startTimer() { if (!running) { if (secondsLeft <= 0) setSecondsLeft(minutes * 60); setRunning(true); } }
-  function resetTimer() { setRunning(false); setSecondsLeft(0); }
+  function startTimer() { if (!running) { if (secondsLeft <= 0) { setSecondsLeft(minutes * 60); setTimerStarted(true); } setRunning(true); } }
+  function resetTimer() { setRunning(false); setSecondsLeft(0); setTimerStarted(false); }
   function openLesson(stepId: string) {
     const target = ALL_STEPS.find((step) => step.id === stepId);
     if (!target) return;
@@ -306,7 +307,7 @@ export default function StudyLab() {
         id: `mastery-${stepId}-${Date.now()}`,
         date: new Date().toISOString(),
         resource: activeLesson.title,
-        minutes: Math.max(1, Math.round((minutes * 60 - secondsLeft) / 60)),
+        minutes: timerStarted ? Math.max(1, Math.round((minutes * 60 - secondsLeft) / 60)) : 1,
         evidence: mode === "assessment" ? `Passed the ${activeLesson.phaseTitle} mastery check and tested out of this step.` : practiceEvidence.trim(),
         steps: [...new Set([...saved.mastered, stepId])],
       }, ...saved.records],
@@ -327,7 +328,7 @@ export default function StudyLab() {
   function logEvidence() {
     const note = evidence.trim() || saved.notes.trim();
     if (!note) return;
-    const elapsed = secondsLeft > 0 ? Math.max(1, minutes - Math.ceil(secondsLeft / 60)) : minutes;
+    const elapsed = timerStarted ? Math.max(1, Math.round((minutes * 60 - secondsLeft) / 60)) : 1;
     const record: StudyRecord = { id: `${Date.now()}`, date: new Date().toISOString(), resource: current.title, minutes: elapsed, evidence: note, steps: [...saved.completed] };
     patchSaved({ records: [record, ...saved.records], notes: saved.notes });
     setEvidence("");
