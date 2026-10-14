@@ -4,7 +4,8 @@ import "./StudyLab.css";
 
 type Resource = { id: string; title: string; url?: string; area: string; note: string };
 type StudyRecord = { id: string; date: string; resource: string; minutes: number; evidence: string; steps: string[] };
-type StudySaved = { selected: string; completed: string[]; notes: string; records: StudyRecord[]; customResources: Resource[]; updatedAt: number };
+type XpAward = { date: string; points: number; mode: "practice" | "assessment" };
+type StudySaved = { selected: string; completed: string[]; mastered: string[]; xpAwards: Record<string, XpAward>; notes: string; records: StudyRecord[]; customResources: Resource[]; updatedAt: number };
 const KEY = "fw-study-lab-v1";
 const RESOURCES: Resource[] = [
   { id: "python-tutorial", title: "The Python Tutorial — core chapters", url: "https://docs.python.org/3/tutorial/", area: "Python foundations", note: "Read one small section, close it, rebuild the example from memory, then change the inputs and explain the result." },
@@ -74,9 +75,9 @@ const DURATIONS = [25, 50, 90, 120, 180, 240, 360, 480];
 function loadSaved(): StudySaved {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const parsed = JSON.parse(raw); return { selected: "spiral-matrix", completed: [], notes: "", records: [], customResources: [], updatedAt: 0, ...parsed }; }
+    if (raw) { const parsed = JSON.parse(raw); return { selected: "python-tutorial", completed: [], mastered: [], xpAwards: {}, notes: "", records: [], customResources: [], updatedAt: 0, ...parsed, mastered: Array.isArray(parsed.mastered) ? parsed.mastered : [], xpAwards: parsed.xpAwards && typeof parsed.xpAwards === "object" ? parsed.xpAwards : {} }; }
   } catch { /* storage may be unavailable */ }
-  return { selected: "spiral-matrix", completed: [], notes: "", records: [], customResources: [], updatedAt: 0 };
+  return { selected: "python-tutorial", completed: [], mastered: [], xpAwards: {}, notes: "", records: [], customResources: [], updatedAt: 0 };
 }
 
 export default function StudyLab() {
