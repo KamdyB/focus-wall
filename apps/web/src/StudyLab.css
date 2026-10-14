@@ -83,3 +83,7 @@
 .lesson-timer>div:first-child span{font:700 17px "JetBrains Mono",monospace;color:var(--ink)}
 @media(max-width:620px){.game-nodes{grid-template-columns:repeat(2,minmax(0,1fr))}.game-node{min-height:104px}.lesson-panel{padding:13px}.game-phase{padding:11px}}
 @media(prefers-reduced-motion:reduce){.game-node,.study-progress-track span{transition:none}}
+
+.study-extras{margin:18px 0;border:1px solid var(--edge);border-radius:14px;background:var(--panel);padding:12px}
+.study-extras>summary{font-size:12px;font-weight:800;color:var(--ink-soft);cursor:pointer;list-style-position:inside;padding:4px}
+.study-extras[open]>summary{margin-bottom:14px}
