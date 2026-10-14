@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.routers.study_lab import StudyProgressIn, StudyStateIn
+from app.routers.study_lab import StudyProgressIn, StudyStateIn, _valid_stage
 
 
 def test_progress_schema_accepts_only_compact_summary_fields():
@@ -60,3 +60,32 @@ def test_full_state_accepts_notes_records_and_custom_resources_for_cross_device_
 def test_full_state_rejects_unexpected_fields():
     with pytest.raises(ValidationError):
         StudyStateIn.model_validate({"data": {"notes": "x", "unknown": "should fail"}})
+
+
+
+def test_full_state_accepts_gated_lesson_progress_and_xp():
+    payload = StudyStateIn.model_validate({
+        "data": {
+            "selected": "python-tutorial",
+            "completed": ["py-read", "py-types"],
+            "mastered": ["py-read"],
+            "xpAwards": {"py-read": {"date": "2026-10-15", "points": 10, "mode": "practice"}},
+            "notes": "",
+            "records": [{
+                "id": "mastery-py-read-1", "date": "2026-10-15T00:00:00Z",
+                "resource": "Read, close, recreate", "minutes": 25,
+                "evidence": "Rebuilt the examples and tested a changed input.",
+                "steps": ["py-read"]
+            }],
+            "customResources": [],
+            "updatedAt": 1792022400000
+        }
+    })
+    assert payload.data.mastered == ["py-read"]
+    assert payload.data.xpAwards["py-read"]["points"] == 10
+
+
+def test_only_known_lesson_ids_are_accepted_as_progress():
+    assert _valid_stage("py-read")
+    assert _valid_stage("Concept")
+    assert not _valid_stage("invented-lesson")
