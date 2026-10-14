@@ -96,6 +96,7 @@ export default function StudyLab() {
   const [coachBusy, setCoachBusy] = useState(false);
   const resources = useMemo(() => [...RESOURCES, ...saved.customResources], [saved.customResources]);
   const current = resources.find((r) => r.id === saved.selected) ?? RESOURCES[0];
+  const nextStepId = ROADMAP.flatMap((phase) => phase.steps).find((step) => !saved.completed.includes(step.id))?.id;
   const remaining = Math.max(0, secondsLeft);
   const time = `${String(Math.floor(remaining / 3600)).padStart(2, "0")}:${String(Math.floor((remaining % 3600) / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
 
@@ -309,7 +310,7 @@ export default function StudyLab() {
       <div className="roadmap">
         {ROADMAP.map((phase) => {
           const completed = phase.steps.filter((step) => saved.completed.includes(step.id)).length;
-          const active = phase.steps.find((step) => !saved.completed.includes(step.id));
+          const active = phase.steps.find((step) => step.id === nextStepId);
           return <section className="roadmap-phase" key={phase.id}>
             <div className="roadmap-phase-head">
               <div><span className="study-area">{completed === phase.steps.length ? "PHASE COMPLETE" : "ORDERED LEARNING PATH"}</span><h3>{phase.title}</h3><p>{phase.goal}</p></div>
@@ -321,7 +322,7 @@ export default function StudyLab() {
                 const isNext = !done && step.id === active?.id;
                 return <article className={`roadmap-step${done ? " done" : ""}${isNext ? " next" : ""}`} key={step.id}>
                   <label className="roadmap-check">
-                    <input type="checkbox" checked={done} onChange={() => toggleStep(step.id)} aria-label={`Mark ${step.title} ${done ? "not complete" : "complete"}`} />
+                    <input type="checkbox" checked={done} disabled={!done && step.id !== nextStepId} onChange={() => toggleStep(step.id)} aria-label={`Mark ${step.title} ${done ? "not complete" : "complete"}`} />
                     <span className="study-step-num">{String(index + 1).padStart(2, "0")}</span>
                   </label>
                   <div className="roadmap-step-body"><strong>{step.title}</strong><p>{step.detail}</p><a href={step.url} target="_blank" rel="noreferrer">Open exact resource ↗</a></div>
