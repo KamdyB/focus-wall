@@ -30,3 +30,56 @@
 .roadmap-next-label{grid-column:2;font:700 10px "JetBrains Mono",monospace;color:#2378ca;letter-spacing:.04em}
 .roadmap-gate{font-size:12px;line-height:1.6;color:var(--ink-soft);border-top:1px solid var(--edge);padding-top:12px;margin:14px 0 0}
 @media(max-width:620px){.roadmap-phase{padding:12px}.roadmap-phase-head h3{font-size:15px}.roadmap-step{padding:11px;gap:8px}}
+
+
+/* Game-like Study Lab: clear path, locked tiles, mastery and feedback */
+.study-progress-wrap{margin:12px 0 24px;padding:16px;border:1px solid var(--edge);border-radius:16px;background:var(--panel)}
+.study-progress-label{display:flex;justify-content:space-between;gap:12px;font-size:13px}
+.study-progress-label span{color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.study-progress-track{height:8px;background:var(--edge);border-radius:999px;overflow:hidden;margin:12px 0}
+.study-progress-track span{display:block;height:100%;background:#3987d7;border-radius:999px;transition:width .25s ease}
+.game-map{display:grid;gap:16px;margin:14px 0 24px}
+.game-phase{border:1px solid var(--edge);border-radius:18px;padding:14px;background:var(--panel);min-width:0}
+.game-phase.locked{opacity:.78}
+.game-phase-heading{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:start;margin-bottom:14px}
+.game-phase-icon{width:38px;height:38px;border-radius:13px;background:rgba(45,130,212,.13);display:grid;place-items:center;font-weight:900;color:var(--ink);font-size:14px}
+.game-phase-heading h3{font-size:16px;margin:6px 0}
+.game-phase-heading p{font-size:12px;line-height:1.5;color:var(--ink-soft);margin:0}
+.game-phase-count{font:700 12px "JetBrains Mono",monospace;padding:6px 8px;border:1px solid var(--edge);border-radius:9px;white-space:nowrap}
+.game-nodes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.game-node{display:flex;min-width:0;min-height:112px;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:11px 8px;border:1px solid var(--edge);border-radius:15px;background:var(--panel);color:var(--ink);cursor:pointer;text-align:center;transition:transform .15s,border-color .15s,background .15s}
+.game-node:hover{transform:translateY(-2px);border-color:#3987d7}
+.game-node.selected{border:2px solid #3987d7;background:rgba(45,130,212,.1)}
+.game-node.mastered{background:rgba(54,151,104,.09);border-color:rgba(54,151,104,.5)}
+.game-node.locked{background:var(--panel);border-style:dashed;color:var(--ink-soft)}
+.game-node-symbol{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:rgba(45,130,212,.12);font-size:16px;font-weight:900}
+.game-node.mastered .game-node-symbol{background:rgba(54,151,104,.16)}
+.game-node-title{font-size:11px;line-height:1.35;font-weight:800;overflow-wrap:anywhere}
+.game-node-xp{font:700 9px "JetBrains Mono",monospace;color:var(--ink-faint)}
+.lesson-panel{padding:18px;border:1px solid rgba(57,135,215,.5);border-radius:18px;background:var(--panel);box-shadow:0 10px 30px var(--shadow);margin:20px 0 28px}
+.lesson-panel-top{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.lesson-reward{font:800 12px "JetBrains Mono",monospace;padding:7px 10px;border-radius:999px;background:rgba(45,130,212,.12);color:#3987d7}
+.lesson-panel h3{font-size:21px;line-height:1.25;margin:14px 0 8px}
+.lesson-panel>p{color:var(--ink-soft);font-size:13px;line-height:1.65}
+.lesson-panel>a{font-size:12px;color:#3987d7;overflow-wrap:anywhere}
+.lesson-mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:18px 0}
+.lesson-mode-switch button{border:1px solid var(--edge);border-radius:10px;background:var(--panel);color:var(--ink-soft);padding:11px 8px;font-size:11px;font-weight:800;cursor:pointer}
+.lesson-mode-switch button.selected{border-color:#3987d7;background:rgba(45,130,212,.12);color:var(--ink)}
+.lesson-checklist{display:grid;gap:8px;margin:14px 0}
+.lesson-checklist p{margin:0;padding:11px;border-radius:10px;background:var(--surface,rgba(128,128,128,.07));font-size:12px;line-height:1.55;color:var(--ink-soft)}
+.lesson-confirm{display:flex;align-items:flex-start;gap:9px;margin:12px 0;font-size:12px;line-height:1.5;color:var(--ink-soft)}
+.lesson-confirm input{margin-top:3px;accent-color:#3987d7}
+.lesson-quiz{display:grid;gap:12px;margin:14px 0}
+.lesson-question{border:1px solid var(--edge);border-radius:12px;padding:13px;min-width:0}
+.lesson-question legend{font-size:13px;font-weight:800;line-height:1.5;padding:0 4px;white-space:normal}
+.lesson-option{display:flex;align-items:flex-start;gap:8px;padding:9px 7px;margin-top:5px;border-radius:8px;background:rgba(128,128,128,.045);font-size:12px;line-height:1.45;cursor:pointer}
+.lesson-option input{margin-top:2px;accent-color:#3987d7;flex-shrink:0}
+.lesson-correct,.lesson-incorrect{font-size:11px;line-height:1.5;padding:8px;border-radius:8px}
+.lesson-correct{background:rgba(54,151,104,.12);color:var(--ink)}
+.lesson-incorrect{background:rgba(220,100,70,.1);color:var(--ink)}
+.lesson-feedback{padding:12px;border-radius:10px;border:1px solid var(--edge);font-size:12px;line-height:1.5}
+.lesson-timer{border-top:1px solid var(--edge);margin-top:18px;padding-top:14px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.lesson-timer>div:first-child{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-soft)}
+.lesson-timer>div:first-child span{font:700 17px "JetBrains Mono",monospace;color:var(--ink)}
+@media(max-width:620px){.game-nodes{grid-template-columns:repeat(2,minmax(0,1fr))}.game-node{min-height:104px}.lesson-panel{padding:13px}.game-phase{padding:11px}}
+@media(prefers-reduced-motion:reduce){.game-node,.study-progress-track span{transition:none}}
