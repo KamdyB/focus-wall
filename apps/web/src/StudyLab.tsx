@@ -406,62 +406,39 @@ export default function StudyLab() {
         <div className="section-label">Study lab · offline-first</div>
         <h2>Struggle first. Understand for real.</h2>
         <p>Your full Study Lab — notes, attempts, custom resources and evidence — syncs across your devices through your private cloud record. Work offline when needed; reconnect to sync. Ask the coach for a hint when stuck, not a full solution.</p>
-        <div className="study-hero-meta"><span>{saved.records.length} evidence logs</span><span>{PIPELINE.filter((id) => saved.completed.includes(id)).length}/{PIPELINE.length} steps complete</span><span>One step at a time</span><span>Local-first + cloud sync</span></div>
+        <div className="study-hero-meta"><span>{studyXpToday} XP TODAY</span><span>{studyXpTotal} TOTAL XP</span><span>{studyStreakDays} DAY STREAK</span><span>{saved.mastered.length}/{PIPELINE.length} MASTERED</span></div>
       </div>
-      <div className="section-label">Today's starting point</div>
-      <label className="study-label" htmlFor="study-resource">Resource / problem</label>
-      <select id="study-resource" className="field" value={saved.selected} onChange={(e) => { patchSaved({ selected: e.target.value }); setEvidence(""); resetTimer(); }}>
-        {resources.map((r) => <option key={r.id} value={r.id}>{r.area} — {r.title}</option>)}
-      </select>
-      <article className="study-resource">
-        <div className="study-resource-top"><span className="study-area">{current.area}</span><span className="study-status">START WITH YOUR OWN ATTEMPT</span></div>
-        <h3>{current.title}</h3>
-        <p>{current.note}</p>
-        {current.url ? <a href={current.url} target="_blank" rel="noreferrer">{current.url} ↗</a> : <span className="study-muted">Link not verified — add the exact URL yourself.</span>}
-      </article>
-      <div className="section-label">Lock-in timer</div>
-      <div className="study-timer-card">
-        <label className="study-label" htmlFor="study-duration">Session length (breaks are separate)</label>
-        <select id="study-duration" className="field" value={minutes} disabled={running} onChange={(e) => setMinutes(Number(e.target.value))}>
-          {DURATIONS.map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? "s" : ""}`}</option>)}
-        </select>
-        <div className="study-clock" role="timer" aria-live="off">{time}</div>
-        <div className="study-actions">
-          {!running ? <button className="ghost-btn" onClick={startTimer}>{secondsLeft > 0 ? "RESUME" : "START SESSION"}</button> : <button className="ghost-btn" onClick={() => setRunning(false)}>PAUSE</button>}
-          <button className="chip" onClick={resetTimer}>RESET</button>
-        </div>
-        <p className="study-muted">Timer is a commitment aid, not proof of mastery. Take breaks and stop when your concentration drops.</p>
+      <div className="study-progress-wrap">
+        <div className="study-progress-label"><strong>Your learning world</strong><span>{Math.round((saved.mastered.length / PIPELINE.length) * 100)}% complete</span></div>
+        <div className="study-progress-track"><span style={{ width: `${(saved.mastered.length / PIPELINE.length) * 100}%` }} /></div>
+        <p className="study-muted">Follow the path in order. Every tile is a tiny lesson: learn, practise, prove it. You can test out of a step by passing its assessment. XP is awarded once per mastered tile.</p>
       </div>
-      <div className="section-label">Your mastery roadmap · follow in order</div>
-      <p className="study-muted">Do not try to finish the whole roadmap today. Open the first unfinished step, do the work, save evidence, and only then check it. Every phase has a gate: move forward when you can demonstrate the skill, not just when you have watched a video.</p>
-      <div className="roadmap">
-        {ROADMAP.map((phase) => {
-          const completed = phase.steps.filter((step) => saved.completed.includes(step.id)).length;
-          const active = phase.steps.find((step) => step.id === nextStepId);
-          return <section className="roadmap-phase" key={phase.id}>
-            <div className="roadmap-phase-head">
-              <div><span className="study-area">{completed === phase.steps.length ? "PHASE COMPLETE" : "ORDERED LEARNING PATH"}</span><h3>{phase.title}</h3><p>{phase.goal}</p></div>
-              <span className="roadmap-count">{completed}/{phase.steps.length}</span>
-            </div>
-            <div className="roadmap-steps">
+      <div className="section-label">The path · tap a tile</div>
+      <div className="game-map">
+        {ROADMAP.map((phase, phaseIndex) => {
+          const phaseDone = phase.steps.every((step) => saved.mastered.includes(step.id));
+          const phaseOpen = phaseIndex === 0 || ROADMAP[phaseIndex - 1].steps.every((step) => saved.mastered.includes(step.id));
+          return <section className={`game-phase${phaseOpen ? " open" : " locked"}`} key={phase.id}>
+            <div className="game-phase-heading"><span className="game-phase-icon">{phaseDone ? "★" : phaseOpen ? String(phaseIndex + 1).padStart(2, "0") : "🔒"}</span><div><span className="study-area">{phaseDone ? "WORLD CLEARED" : phaseOpen ? "CURRENT WORLD" : "LOCKED WORLD"}</span><h3>{phase.title.replace(/^\d+ · /, "")}</h3><p>{phase.goal}</p></div><span className="game-phase-count">{phase.steps.filter((step) => saved.mastered.includes(step.id)).length}/{phase.steps.length}</span></div>
+            <div className="game-nodes">
               {phase.steps.map((step, index) => {
-                const done = saved.completed.includes(step.id);
-                const isNext = !done && step.id === active?.id;
-                return <article className={`roadmap-step${done ? " done" : ""}${isNext ? " next" : ""}`} key={step.id}>
-                  <label className="roadmap-check">
-                    <input type="checkbox" checked={done} disabled={!done && step.id !== nextStepId} onChange={() => toggleStep(step.id)} aria-label={`Mark ${step.title} ${done ? "not complete" : "complete"}`} />
-                    <span className="study-step-num">{String(index + 1).padStart(2, "0")}</span>
-                  </label>
-                  <div className="roadmap-step-body"><strong>{step.title}</strong><p>{step.detail}</p><a href={step.url} target="_blank" rel="noreferrer">Open exact resource ↗</a></div>
-                  {isNext && <span className="roadmap-next-label">START HERE</span>}
-                </article>;
+                const done = saved.mastered.includes(step.id);
+                const unlocked = done || step.id === nextStepId;
+                const isActive = step.id === (activeLessonId || nextStepId);
+                return <button type="button" key={step.id} disabled={!unlocked && !phaseOpen} onClick={() => openLesson(step.id)} className={`game-node${done ? " mastered" : ""}${isActive ? " selected" : ""}${unlocked ? "" : " locked"}`}><span className="game-node-symbol">{done ? "✓" : unlocked ? (index % 3 === 1 ? "?" : "▶") : "🔒"}</span><span className="game-node-title">{step.title}</span><span className="game-node-xp">{done ? "DONE" : unlocked ? "+10 XP" : "LOCKED"}</span></button>;
               })}
             </div>
-            <p className="roadmap-gate"><strong>Mastery gate:</strong> {phase.gate}</p>
           </section>;
         })}
       </div>
-      <div className="section-label">Evidence, not vibes</div>
+      <section className="lesson-panel" aria-live="polite">
+        <div className="lesson-panel-top"><span className="study-area">{saved.mastered.includes(activeLesson.id) ? "LESSON COMPLETE" : lessonMode === "assessment" ? "TEST OUT CHALLENGE" : "YOUR NEXT LESSON"}</span><span className="lesson-reward">+{lessonMode === "assessment" ? 15 : 10} XP</span></div>
+        <h3>{activeLesson.title}</h3><p>{activeLesson.detail}</p><a href={activeLesson.url} target="_blank" rel="noreferrer">Open lesson resource ↗</a>
+        <div className="lesson-mode-switch"><button type="button" className={lessonMode === "practice" ? "selected" : ""} onClick={() => { setLessonMode("practice"); setLessonAnswers({}); setLessonFeedback(""); }}>LEARN & PRACTISE</button><button type="button" className={lessonMode === "assessment" ? "selected" : ""} onClick={() => { setLessonMode("assessment"); setLessonAnswers({}); setLessonFeedback(""); }}>TEST OUT</button></div>
+        {lessonMode === "practice" ? <><div className="lesson-checklist"><p><strong>1. Learn.</strong> Open the resource and focus only on this lesson.</p><p><strong>2. Try.</strong> Close the reference and solve/build the task yourself.</p><p><strong>3. Prove.</strong> Record what you made, tested, or can explain.</p></div><label className="study-label" htmlFor="practice-evidence">What did you actually do? (required)</label><textarea id="practice-evidence" className="field" rows={4} value={practiceEvidence} onChange={(event) => setPracticeEvidence(event.target.value)} placeholder="Describe your attempt, result, one mistake you fixed, and what you can now explain."/><label className="lesson-confirm"><input type="checkbox" checked={practiceConfirmed} onChange={(event) => setPracticeConfirmed(event.target.checked)}/><span>I did the work myself and can explain the result without copying.</span></label><button type="button" className="ghost-btn" disabled={saved.mastered.includes(activeLesson.id) || !practiceConfirmed || practiceEvidence.trim().length < 30} onClick={() => awardLesson(activeLesson.id, "practice", 10)}>COMPLETE LESSON · +10 XP</button></> : <><p className="study-muted">Answer all three questions correctly to test out of this step and unlock the next tile.</p><div className="lesson-quiz">{activeChecks.map((check, index) => <fieldset className="lesson-question" key={`${activeLesson.id}-${index}`}><legend>{index + 1}. {check.question}</legend>{check.options.map((option, optionIndex) => <label className="lesson-option" key={option}><input type="radio" name={`quiz-${activeLesson.id}-${index}`} checked={lessonAnswers[index] === optionIndex} onChange={() => setLessonAnswers((answers) => ({ ...answers, [index]: optionIndex }))}/><span>{option}</span></label>)}{lessonAnswers[index] !== undefined && <p className={lessonAnswers[index] === check.answer ? "lesson-correct" : "lesson-incorrect"}>{lessonAnswers[index] === check.answer ? "Correct. " : "Review: "}{check.why}</p>}</fieldset>)}</div><button type="button" className="ghost-btn" disabled={saved.mastered.includes(activeLesson.id)} onClick={submitAssessment}>SUBMIT MASTERY CHECK</button></>}
+        {lessonFeedback && <p className="lesson-feedback" role="status">{lessonFeedback}</p>}
+        <div className="lesson-timer"><div><strong>Focus timer</strong><span>{time}</span></div><div className="study-actions">{!running ? <button type="button" className="chip" onClick={startTimer}>{secondsLeft > 0 ? "RESUME" : "START SESSION"}</button> : <button type="button" className="chip" onClick={() => setRunning(false)}>PAUSE</button>}<button type="button" className="chip" onClick={resetTimer}>RESET</button></div></div>
+      </section>      <div className="section-label">Evidence, not vibes</div>
       <label className="study-label" htmlFor="study-notes">Your own explanation / attempt / mistakes</label>
       <textarea id="study-notes" className="field" rows={6} value={saved.notes} onChange={(e) => patchSaved({ notes: e.target.value })} placeholder="Without AI: explain the idea, write your approach, test edge cases, state time/space complexity, record what failed, and write one retrieval question." />
       <label className="study-label" htmlFor="study-evidence">What did you actually finish?</label>
