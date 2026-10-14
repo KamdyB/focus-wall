@@ -359,6 +359,8 @@ export default function StudyLab() {
       const merged: StudySaved = cloud ? {
         selected: cloudUpdatedAt > saved.updatedAt ? cloud.selected : saved.selected,
         completed: [...new Set([...(cloud.completed || []), ...saved.completed, ...(remote.progress?.completed_stages || [])])],
+        mastered: [...new Set([...(cloud.mastered || []), ...saved.mastered])],
+        xpAwards: { ...(cloud.xpAwards || {}), ...saved.xpAwards },
         notes: cloudUpdatedAt > saved.updatedAt ? cloud.notes : saved.notes,
         records: [...new Map([...(cloud.records || []), ...saved.records].map((record) => [record.id, record])).values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
         customResources: [...new Map([...(cloud.customResources || []), ...saved.customResources].map((resource) => [resource.id, resource])).values()],
