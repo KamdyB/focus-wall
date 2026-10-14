@@ -7,29 +7,68 @@ type StudyRecord = { id: string; date: string; resource: string; minutes: number
 type StudySaved = { selected: string; completed: string[]; notes: string; records: StudyRecord[]; customResources: Resource[]; updatedAt: number };
 const KEY = "fw-study-lab-v1";
 const RESOURCES: Resource[] = [
-  { id: "spiral-matrix", title: "Spiral Matrix — solve unaided first", url: "https://leetcode.com/problems/spiral-matrix/", area: "Algorithms", note: "Trace four boundaries; handle single rows/columns; explain why each boundary moves inward." },
-  { id: "aced", title: "ACEd — system design learning", url: "https://www.aced.io", area: "System design", note: "Choose one concept, write your own explanation, then sketch a design from memory." },
-  { id: "python-tutorial", title: "The Python Tutorial", url: "https://docs.python.org/3/tutorial/", area: "Python", note: "Read a small section, close the page, and recreate the example without copying." },
-  { id: "python-structures", title: "Python data structures", url: "https://docs.python.org/3/tutorial/datastructures.html", area: "Python", note: "Compare list, tuple, set and dict; implement a tiny example and state trade-offs." },
-  { id: "python-packaging", title: "Python Packaging User Guide", url: "https://packaging.python.org/en/latest/", area: "Python", note: "Practise imports, packages, project metadata and a README." },
-  { id: "pandas", title: "pandas getting started", url: "https://pandas.pydata.org/docs/getting_started/index.html", area: "Data", note: "Load a small dataset, inspect it, transform it, and explain each operation." },
-  { id: "hackerrank", title: "HackerRank Interview Preparation Kit", url: "https://www.hackerrank.com/interview/interview-preparation-kit", area: "Interview practice", note: "Attempt independently; record the pattern and complexity before checking editorial material." },
-  { id: "hello-interview", title: "Hello Interview", url: "https://www.hellointerview.com/", area: "Interview practice", note: "Use for interview structure and system-design practice; do the first attempt without AI." },
-  { id: "think-python", title: "Think Python — free book", url: "https://greenteapress.com/wp/think-python-3rd-edition/", area: "Book", note: "Read a chapter actively; answer exercises in your own file before looking at solutions." },
-  { id: "mit-algorithms", title: "MIT OpenCourseWare — Introduction to Algorithms", url: "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/", area: "Algorithms", note: "Use lecture notes and problem sets to deepen complexity and algorithmic reasoning." },
-  { id: "visualgo", title: "VisuAlgo", url: "https://visualgo.net/en", area: "Visualisation", note: "Predict each step before animating it; then reproduce the algorithm on paper." },
-  { id: "cs50p", title: "Harvard CS50P — Introduction to Programming with Python", url: "https://cs50.harvard.edu/python/", area: "Python", note: "Use problem sets as closed-book practice. Explain each design choice before checking any hints." },
-  { id: "sqlbolt", title: "SQLBolt interactive lessons", url: "https://sqlbolt.com/", area: "SQL / data engineering", note: "Write queries yourself, then explain filtering, joins and aggregation in plain language." },
-  { id: "kaggle-learn", title: "Kaggle Learn micro-courses", url: "https://www.kaggle.com/learn", area: "Data / ML", note: "Pair each lesson with an independent notebook and a small written interpretation." },
-  { id: "fastai", title: "fast.ai — Practical Deep Learning for Coders", url: "https://course.fast.ai/", area: "AI / ML", note: "Start after Python and data foundations; reproduce one experiment and explain its limits." },
-  { id: "ml-book", title: "An Introduction to Statistical Learning — free textbooks", url: "https://www.statlearning.com/", area: "Book / machine learning", note: "Read selectively alongside statistics; work through exercises before reading solutions." },
-  { id: "system-design-primer", title: "System Design Primer", url: "https://github.com/donnemartin/system-design-primer", area: "System design", note: "Draw the system from memory, identify bottlenecks, then compare against the guide." },
-  { id: "system-design-interview", title: "Hello Interview — system design guides", url: "https://www.hellointerview.com/learn/system-design/in-a-hurry/introduction", area: "System design", note: "Practise requirements, APIs, data model, scaling and trade-offs on paper before reviewing." },
-  { id: "podcast-data-skeptic", title: "Data Skeptic podcast", url: "https://dataskeptic.com/", area: "Podcast / research", note: "After an episode, write the claim, evidence, assumptions and one question to investigate." },
-  { id: "podcast-softeng", title: "Software Engineering Daily podcast", url: "https://softwareengineeringdaily.com/", area: "Podcast / software engineering", note: "Treat episodes as prompts for follow-up reading and a short technical explanation." },
-  { id: "charka", title: "Charka AI — shared in your study group", area: "Interview practice", note: "URL not verified. Add the exact link manually if you want it tracked; do not rely on it for unaided practice." },
+  { id: "python-tutorial", title: "The Python Tutorial — core chapters", url: "https://docs.python.org/3/tutorial/", area: "Python foundations", note: "Read one small section, close it, rebuild the example from memory, then change the inputs and explain the result." },
+  { id: "python-classes", title: "Python classes and objects", url: "https://docs.python.org/3/tutorial/classes.html", area: "Python foundations", note: "Start only after functions, data structures, modules and exceptions are comfortable." },
+  { id: "spiral-matrix", title: "LeetCode 54 — Spiral Matrix", url: "https://leetcode.com/problems/spiral-matrix/", area: "Algorithms", note: "Draw the boundaries first, attempt a brute-force approach, then handle one-row and one-column cases." },
+  { id: "kaggle-python", title: "Kaggle Learn — Python", url: "https://www.kaggle.com/learn/python", area: "Data foundations", note: "Complete the exercises yourself; translate techniques into a separate notebook without copying." },
+  { id: "pandas", title: "Kaggle Learn — Pandas", url: "https://www.kaggle.com/learn/pandas", area: "Data foundations", note: "Load, inspect, clean, group and combine data; write one sentence explaining each result." },
+  { id: "kaggle-ml", title: "Kaggle Learn — Intro to Machine Learning", url: "https://www.kaggle.com/learn/intro-to-machine-learning", area: "Machine learning", note: "Start after Python and pandas. Build a baseline and explain validation and error before improving the model." },
+  { id: "mit-algorithms", title: "MIT OCW — Introduction to Algorithms", url: "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/", area: "Algorithms", note: "Use lectures and problem sets to deepen algorithmic reasoning after the first implementation attempts." },
+  { id: "sinopia", title: "Sinopia — your actual project", url: "https://github.com/KamdyB/sinopia", area: "Project work", note: "Work from the real youth-sports injury-risk problem and existing codebase; do not replace it with an unrelated xG demo." },
+  { id: "git-commits", title: "GitHub Docs — commits", url: "https://docs.github.com/en/pull-requests/reference/commits", area: "Engineering practice", note: "Make small, meaningful commits that explain one coherent change; run relevant checks before committing." },
 ];
-const PIPELINE = ["Concept", "Understand", "Attempt unaided", "Debug", "Reinforce", "Practise", "Build", "Ship"];
+const ROADMAP = [
+  { id: "python-core", title: "01 · Python foundations", goal: "Write small programs without needing a tutorial open beside you.", gate: "Build a small command-line program from a blank file, explain every function, and fix a bug without asking AI for the solution.", steps: [
+    { id: "py-read", title: "Read, close, recreate", detail: "Read the official tutorial on syntax, control flow, functions and data structures. After each small section, close it and recreate two examples.", url: "https://docs.python.org/3/tutorial/" },
+    { id: "py-types", title: "Practise core data types", detail: "Write exercises using strings, lists, tuples, dictionaries and sets. Include empty inputs, duplicates and missing keys.", url: "https://docs.python.org/3/tutorial/datastructures.html" },
+    { id: "py-functions", title: "Write functions from scratch", detail: "Create eight small functions with clear parameters and return values. Trace at least three by hand.", url: "https://docs.python.org/3/tutorial/controlflow.html#defining-functions" },
+    { id: "py-files", title: "Read files and handle errors", detail: "Read a text or JSON file, validate its contents, and handle a missing file or malformed record.", url: "https://docs.python.org/3/tutorial/inputoutput.html#reading-and-writing-files" },
+    { id: "py-modules", title: "Split code into modules", detail: "Move related functions into a module, import them from a separate entry point, and write run instructions.", url: "https://docs.python.org/3/tutorial/modules.html" },
+    { id: "py-mini-build", title: "Build, test and commit a mini-program", detail: "Build a small command-line tracker or CSV summary tool. Test normal and edge cases, write a README, inspect the diff, then commit.", url: "https://docs.github.com/en/pull-requests/reference/commits" },
+  ]},
+  { id: "problem-solving", title: "02 · Independent problem-solving", goal: "Turn a problem statement into a plan, code, tests and an explanation.", gate: "Solve a fresh easy problem unaided, explain the approach and complexity, then reproduce it from memory on another day.", steps: [
+    { id: "dsa-trace", title: "Trace before coding", detail: "Write the input, expected output, a hand-worked example and the simplest correct approach before opening the editor.", url: "https://leetcode.com/studyplan/programming-skills/" },
+    { id: "dsa-arrays", title: "Solve array and string problems", detail: "Solve five beginner problems on indexing, loops, counting and string manipulation. Save your first attempt and the bug you fixed.", url: "https://leetcode.com/problemset/" },
+    { id: "dsa-hash", title: "Use sets and dictionaries to solve problems", detail: "Solve three counting or lookup problems. Explain why a set or dictionary helps and its time-cost trade-off.", url: "https://www.hackerrank.com/interview/interview-preparation-kit" },
+    { id: "dsa-spiral", title: "Attempt Spiral Matrix", detail: "Try independently first. Draw four boundaries, test a single row and column, and consult hints only after a genuine attempt.", url: "https://leetcode.com/problems/spiral-matrix/" },
+    { id: "dsa-retry", title: "Re-solve without looking", detail: "Close the editorial and solve it again on a later day. Record what you recalled and what you could not derive.", url: "https://leetcode.com/problems/spiral-matrix/" },
+    { id: "dsa-commit", title: "Commit the solution and explanation", detail: "Add tests, complexity, edge cases and a short explanation to your learning repo. Review the diff before committing.", url: "https://docs.github.com/en/pull-requests/reference/commits" },
+  ]},
+  { id: "engineering", title: "03 · Software engineering habits", goal: "Make work reproducible, testable and reviewable—not just code that works once.", gate: "Someone else can follow your README, run the tests and understand your latest commit.", steps: [
+    { id: "eng-git", title: "Practise the Git loop", detail: "Create a branch, make one focused change, inspect the diff, commit with a descriptive message and push it.", url: "https://docs.github.com/en/get-started/using-git/about-git" },
+    { id: "eng-tests", title: "Test behaviour and edge cases", detail: "Add tests for normal cases, boundaries and invalid input. Fix the implementation rather than weakening a valid test.", url: "https://docs.pytest.org/en/stable/getting-started.html" },
+    { id: "eng-debug", title: "Debug deliberately", detail: "Reproduce a bug, reduce it to the smallest failing case, inspect state, fix the cause and add a regression test.", url: "https://docs.python.org/3/library/pdb.html" },
+    { id: "eng-review", title: "Review before every commit", detail: "Run relevant tests, inspect the diff for secrets or unrelated edits, and commit one coherent change.", url: "https://docs.github.com/en/pull-requests/how-tos/committing-changes-to-your-project" },
+  ]},
+  { id: "data", title: "04 · Data foundations", goal: "Take a real dataset from raw rows to a defensible, explained result.", gate: "Deliver a rerunnable notebook or script that explains its findings and limitations.", steps: [
+    { id: "data-python", title: "Complete Kaggle Python exercises", detail: "Practise functions, conditionals, lists, loops, strings/dictionaries and external libraries. Rebuild one exercise outside Kaggle.", url: "https://www.kaggle.com/learn/python" },
+    { id: "data-pandas", title: "Learn pandas in order", detail: "Practise reading data, selecting rows/columns, grouping, sorting, missing values and combining tables.", url: "https://www.kaggle.com/learn/pandas" },
+    { id: "data-clean", title: "Audit a real dataset", detail: "Inspect schema, duplicates, missingness, invalid values and sampling limitations. Keep raw data unchanged and document cleaning choices.", url: "https://pandas.pydata.org/docs/getting_started/index.html" },
+    { id: "data-viz", title: "Make one useful visual", detail: "Create a chart that answers one question. Label units, describe the pattern and state what the chart cannot establish.", url: "https://matplotlib.org/stable/tutorials/" },
+    { id: "data-commit", title: "Ship a reproducible analysis", detail: "Include source attribution, setup instructions, a clear result, limitations and a meaningful Git commit.", url: "https://docs.github.com/en/pull-requests/reference/commits" },
+  ]},
+  { id: "sinopia", title: "05 · Apply it to Sinopia", goal: "Improve the actual youth-sports injury-risk project without expanding its scope.", gate: "One evidence-backed improvement is tested, documented, reviewed and shipped; no feature is added just because it sounds impressive.", steps: [
+    { id: "sino-map", title: "Map the existing project first", detail: "Read the README, issue list, data flow and current tests. Write down what works and the single highest-value gap.", url: "https://github.com/KamdyB/sinopia" },
+    { id: "sino-question", title: "Define one answerable question", detail: "State the user, decision, input data, output and limitation in plain language. Preserve Sinopia's actual injury-risk purpose.", url: "https://github.com/KamdyB/sinopia" },
+    { id: "sino-evidence", title: "Cross-check evidence and claims", detail: "Trace thresholds and claims to credible sports-medicine research. Record population, data provenance and uncertainty; do not present a risk estimate as a diagnosis.", url: "https://bjsm.bmj.com/content/52/24/1537" },
+    { id: "sino-small", title: "Build the smallest valid slice", detail: "Implement one narrow change in a branch. Test boundary values and missing/invalid inputs before adding another feature.", url: "https://docs.pytest.org/en/stable/getting-started.html" },
+    { id: "sino-review", title: "Cross-check, commit and request feedback", detail: "Run relevant checks after the final edit, inspect the diff, document limitations, commit, and ask testers a specific question.", url: "https://docs.github.com/en/pull-requests/reference/commits" },
+  ]},
+  { id: "ml", title: "06 · Statistics and machine learning", goal: "Understand why a model works and when it fails before reaching for advanced AI.", gate: "Compare a baseline with a model on held-out data, explain the metric, and identify leakage and limitations.", steps: [
+    { id: "ml-course", title: "Complete Intro to Machine Learning", detail: "Learn validation, decision trees, random forests and evaluation. Reproduce the workflow on a separate dataset.", url: "https://www.kaggle.com/learn/intro-to-machine-learning" },
+    { id: "ml-baseline", title: "Build a baseline before tuning", detail: "Choose a target and metric, split data correctly, compare with a simple baseline, and keep held-out data out of training decisions.", url: "https://scikit-learn.org/stable/model_selection.html" },
+    { id: "ml-errors", title: "Analyse errors and leakage", detail: "Inspect false positives/negatives, class balance, missing data and generalisation. Explain what evidence would change your conclusion.", url: "https://scikit-learn.org/stable/common_pitfalls.html" },
+    { id: "ml-explain", title: "Write a model limitations note", detail: "Document intended use, data source, evaluation design, performance, failure cases and claims the model cannot support.", url: "https://www.statlearning.com/" },
+    { id: "ml-ship", title: "Reproduce and commit the experiment", detail: "Document the environment and run steps, save only necessary artefacts, and commit code plus a short findings note.", url: "https://docs.github.com/en/pull-requests/reference/commits" },
+  ]},
+  { id: "specialise", title: "07 · Specialise after foundations", goal: "Choose a deeper track based on evidence and actual opportunities—not fear of missing out.", gate: "Start after Python, independent problem-solving and one reproducible data project are complete.", steps: [
+    { id: "spec-sql", title: "Add SQL for data work", detail: "Learn filtering, joins, aggregation and window functions; practise on a real schema and explain each query.", url: "https://sqlbolt.com/" },
+    { id: "spec-dsa", title: "Expand DSA in order", detail: "Move through two pointers/sliding window, stacks/queues, binary search, linked lists, trees, heaps, graphs and dynamic programming. Do not grind hundreds of problems at once.", url: "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/" },
+    { id: "spec-quant", title: "Add probability and linear algebra for quant/ML", detail: "Study probability, expectation, linear algebra and statistical inference alongside exercises. This is a later track, not today's competing priority.", url: "https://ocw.mit.edu/" },
+    { id: "spec-branch", title: "Choose the next branch from project needs", detail: "Pick sports analytics, ML engineering, data engineering or quant after reviewing your strengths, target roles and the next real project need.", url: "https://www.kaggle.com/learn" },
+  ]},
+];
+const PIPELINE = ROADMAP.flatMap((phase) => phase.steps.map((step) => step.id));
 const DURATIONS = [25, 50, 90, 120, 180, 240, 360, 480];
 
 function loadSaved(): StudySaved {
@@ -239,7 +278,7 @@ export default function StudyLab() {
         <div className="section-label">Study lab · offline-first</div>
         <h2>Struggle first. Understand for real.</h2>
         <p>Your full Study Lab — notes, attempts, custom resources and evidence — syncs across your devices through your private cloud record. Work offline when needed; reconnect to sync. Ask the coach for a hint when stuck, not a full solution.</p>
-        <div className="study-hero-meta"><span>{saved.records.length} evidence logs</span><span>{saved.completed.length}/${PIPELINE.length} stages checked</span><span>Local-first</span><span>Full cloud sync</span></div>
+        <div className="study-hero-meta"><span>{saved.records.length} evidence logs</span><span>{PIPELINE.filter((id) => saved.completed.includes(id)).length}/{PIPELINE.length} steps complete</span><span>One step at a time</span><span>Local-first + cloud sync</span></div>
       </div>
       <div className="section-label">Today's starting point</div>
       <label className="study-label" htmlFor="study-resource">Resource / problem</label>
@@ -265,13 +304,34 @@ export default function StudyLab() {
         </div>
         <p className="study-muted">Timer is a commitment aid, not proof of mastery. Take breaks and stop when your concentration drops.</p>
       </div>
-      <div className="section-label">Mastery pipeline</div>
-      <p className="study-muted">Check a stage only after doing it. For Spiral Matrix: trace the four boundaries, handle one-row/one-column cases, and explain why the guarded reverse traversals matter.</p>
-      <div className="study-pipeline">
-        {PIPELINE.map((step, i) => <label key={step} className={saved.completed.includes(step) ? "study-step done" : "study-step"}>
-          <input type="checkbox" checked={saved.completed.includes(step)} onChange={() => toggleStep(step)} />
-          <span className="study-step-num">{String(i + 1).padStart(2, "0")}</span><span>{step}</span>
-        </label>)}
+      <div className="section-label">Your mastery roadmap · follow in order</div>
+      <p className="study-muted">Do not try to finish the whole roadmap today. Open the first unfinished step, do the work, save evidence, and only then check it. Every phase has a gate: move forward when you can demonstrate the skill, not just when you have watched a video.</p>
+      <div className="roadmap">
+        {ROADMAP.map((phase) => {
+          const completed = phase.steps.filter((step) => saved.completed.includes(step.id)).length;
+          const active = phase.steps.find((step) => !saved.completed.includes(step.id));
+          return <section className="roadmap-phase" key={phase.id}>
+            <div className="roadmap-phase-head">
+              <div><span className="study-area">{completed === phase.steps.length ? "PHASE COMPLETE" : "ORDERED LEARNING PATH"}</span><h3>{phase.title}</h3><p>{phase.goal}</p></div>
+              <span className="roadmap-count">{completed}/{phase.steps.length}</span>
+            </div>
+            <div className="roadmap-steps">
+              {phase.steps.map((step, index) => {
+                const done = saved.completed.includes(step.id);
+                const isNext = !done && step.id === active?.id;
+                return <article className={`roadmap-step${done ? " done" : ""}${isNext ? " next" : ""}`} key={step.id}>
+                  <label className="roadmap-check">
+                    <input type="checkbox" checked={done} onChange={() => toggleStep(step.id)} aria-label={`Mark ${step.title} ${done ? "not complete" : "complete"}`} />
+                    <span className="study-step-num">{String(index + 1).padStart(2, "0")}</span>
+                  </label>
+                  <div className="roadmap-step-body"><strong>{step.title}</strong><p>{step.detail}</p><a href={step.url} target="_blank" rel="noreferrer">Open exact resource ↗</a></div>
+                  {isNext && <span className="roadmap-next-label">START HERE</span>}
+                </article>;
+              })}
+            </div>
+            <p className="roadmap-gate"><strong>Mastery gate:</strong> {phase.gate}</p>
+          </section>;
+        })}
       </div>
       <div className="section-label">Evidence, not vibes</div>
       <label className="study-label" htmlFor="study-notes">Your own explanation / attempt / mistakes</label>
