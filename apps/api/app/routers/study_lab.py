@@ -1,5 +1,4 @@
 import json
-import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -14,6 +13,15 @@ from app.db.session import get_session
 router = APIRouter(prefix="/study-lab", tags=["study-lab"])
 MAX_STATE_BYTES = 1_500_000
 ALLOWED_STAGES = {"Concept", "Understand", "Attempt unaided", "Debug", "Reinforce", "Practise", "Build", "Ship"}
+LESSON_IDS = {
+    "py-read", "py-types", "py-functions", "py-files", "py-modules", "py-mini-build",
+    "dsa-trace", "dsa-arrays", "dsa-hash", "dsa-spiral", "dsa-retry", "dsa-commit",
+    "eng-git", "eng-tests", "eng-debug", "eng-review",
+    "data-python", "data-pandas", "data-clean", "data-viz", "data-commit",
+    "sino-map", "sino-question", "sino-evidence", "sino-small", "sino-review",
+    "ml-course", "ml-baseline", "ml-errors", "ml-explain", "ml-ship",
+    "spec-sql", "spec-dsa", "spec-quant", "spec-branch",
+}
 
 
 class StudyResource(BaseModel):
@@ -72,8 +80,8 @@ def _decode(row: StudyLabState | None) -> dict[str, Any] | None:
 
 
 def _valid_stage(stage: str) -> bool:
-    # Accept the older named stages plus stable, slug-like IDs for interactive lessons.
-    return stage in ALLOWED_STAGES or bool(re.fullmatch(r"[a-z0-9][a-z0-9-]{0,99}", stage))
+    # Accept the older named stages and only the explicitly supported lesson IDs.
+    return stage in ALLOWED_STAGES or stage in LESSON_IDS
 
 
 def _is_full_state(data: dict[str, Any] | None) -> bool:
