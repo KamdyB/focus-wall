@@ -8,3 +8,25 @@
 .study-coach{padding:16px;margin:10px 0 22px;border:1px solid var(--edge);border-radius:16px;background:var(--panel);box-shadow:0 8px 24px var(--shadow)}
 .study-coach-reply{margin-top:12px;padding:14px;border-radius:12px;border:1px solid rgba(45,130,212,.4);background:rgba(45,130,212,.08)}
 .study-coach-reply p{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink-soft);margin:8px 0 0}
+
+
+/* Ordered mastery roadmap */
+.roadmap{display:grid;gap:18px;margin:16px 0 28px}
+.roadmap-phase{border:1px solid var(--edge);border-radius:16px;padding:16px;background:var(--panel);min-width:0}
+.roadmap-phase-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+.roadmap-phase-head h3{font-size:17px;margin:7px 0}
+.roadmap-phase-head p{font-size:13px;color:var(--ink-soft);margin:0;line-height:1.55}
+.roadmap-count{font:700 13px "JetBrains Mono",monospace;border:1px solid var(--edge);border-radius:10px;padding:7px 9px;white-space:nowrap}
+.roadmap-steps{display:grid;gap:8px}
+.roadmap-step{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;padding:13px;border:1px solid var(--edge);border-radius:12px;position:relative;min-width:0}
+.roadmap-step.next{border-color:rgba(45,130,212,.65);background:rgba(45,130,212,.07)}
+.roadmap-step.done{opacity:.78}
+.roadmap-check{display:flex;gap:8px;align-items:center;padding-top:2px}
+.roadmap-check input{accent-color:#2378ca;width:17px;height:17px;flex-shrink:0}
+.roadmap-step-body{min-width:0}
+.roadmap-step-body strong{font-size:13px;display:block;padding-right:0}
+.roadmap-step-body p{font-size:12px;line-height:1.6;color:var(--ink-soft);margin:6px 0 8px;overflow-wrap:anywhere}
+.roadmap-step-body a{font-size:12px;color:#2378ca;overflow-wrap:anywhere}
+.roadmap-next-label{grid-column:2;font:700 10px "JetBrains Mono",monospace;color:#2378ca;letter-spacing:.04em}
+.roadmap-gate{font-size:12px;line-height:1.6;color:var(--ink-soft);border-top:1px solid var(--edge);padding-top:12px;margin:14px 0 0}
+@media(max-width:620px){.roadmap-phase{padding:12px}.roadmap-phase-head h3{font-size:15px}.roadmap-step{padding:11px;gap:8px}}
