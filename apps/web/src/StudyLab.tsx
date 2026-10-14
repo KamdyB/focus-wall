@@ -248,8 +248,6 @@ export default function StudyLab() {
           completed: [...new Set([...(cloud.completed || []), ...saved.completed, ...(remote.progress?.completed_stages || [])])],
           mastered: [...new Set([...(cloud.mastered || []), ...saved.mastered])],
           xpAwards: { ...(cloud.xpAwards || {}), ...saved.xpAwards },
-          mastered: [...new Set([...(cloud.mastered || []), ...saved.mastered])],
-          xpAwards: { ...(cloud.xpAwards || {}), ...saved.xpAwards },
           notes: cloudUpdatedAt > saved.updatedAt ? cloud.notes : saved.notes,
           records: [...new Map([...(cloud.records || []), ...saved.records].map((record) => [record.id, record])).values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
           customResources: [...new Map([...(cloud.customResources || []), ...saved.customResources].map((resource) => [resource.id, resource])).values()],
@@ -258,8 +256,6 @@ export default function StudyLab() {
           ...saved,
           selected: saved.updatedAt > 0 ? saved.selected : (remote.progress?.selected_resource || saved.selected),
           completed: [...new Set([...saved.completed, ...(remote.progress?.completed_stages || [])])],
-          mastered: [...new Set(saved.mastered)],
-          xpAwards: { ...saved.xpAwards },
           mastered: [...new Set(saved.mastered)],
           xpAwards: { ...saved.xpAwards },
           updatedAt: saved.updatedAt,
@@ -289,15 +285,8 @@ export default function StudyLab() {
   function openLesson(stepId: string) {
     const target = ALL_STEPS.find((step) => step.id === stepId);
     if (!target) return;
-    if (saved.mastered.includes(stepId)) {
-      setActiveLessonId(stepId);
-    } else if (stepId === nextStepId) {
-      setActiveLessonId(stepId);
-    } else {
-      setLessonFeedback("This tile is locked. Complete the highlighted step, or open it and pass its short assessment to test out.");
-      setActiveLessonId(stepId);
-      setLessonMode("assessment");
-    }
+    setActiveLessonId(stepId);
+    setLessonMode(saved.mastered.includes(stepId) || stepId === nextStepId ? "practice" : "assessment");
     setLessonAnswers({});
     setPracticeEvidence("");
     setPracticeConfirmed(false);
