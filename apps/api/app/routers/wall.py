@@ -25,7 +25,14 @@ async def today(db: AsyncSession = Depends(get_session)):
 
     plan = select_today(tasks, goals_by_id, daily_minutes=90)
 
-    xp_result = await db.execute(select(func.coalesce(func.sum(XPEvent.amount), 0)))
+    # XP on the wall is earned today, not the lifetime total.
+    today = local_today()
+    tz = timezone(timedelta(hours=1))
+    start = datetime(today.year, today.month, today.day, tzinfo=tz).astimezone(timezone.utc)
+    end = (datetime(today.year, today.month, today.day, tzinfo=tz) + timedelta(days=1)).astimezone(timezone.utc)
+    xp_result = await db.execute(
+        select(func.coalesce(func.sum(XPEvent.amount), 0)).where(XPEvent.occurred_at >= start, XPEvent.occurred_at < end)
+    )
     xp = int(xp_result.scalar_one())
 
     active_load = sum(g.attention_cost for g in goals if g.status == "active")
@@ -34,7 +41,10 @@ async def today(db: AsyncSession = Depends(get_session)):
     streak_rows = streak_result.scalars().all()
 
     streak = 0
-    cursor = local_today()
+    today = local_today()
+    completed_days = {row.day for row in streak_rows if row.completed_count > 0}
+    # An unfinished day does not break yesterday's streak.
+    cursor = today if today in completed_days else today.fromordinal(today.toordinal() - 1)
     for row in streak_rows:
         if row.day == cursor and row.completed_count > 0:
             streak += 1
@@ -56,7 +66,7 @@ async def today(db: AsyncSession = Depends(get_session)):
         }
 
     return {
-        "date": local_today().isoformat(),
+        "date": today.isoformat(),
         "active_load": active_load,
         "capacity": 12,
         "xp": xp,
