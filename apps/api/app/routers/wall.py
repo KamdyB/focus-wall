@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import local_today
+from app.core.config import local_today, settings
 from app.db.models import DailyStreak, Goal, Task, XPEvent
 from app.db.session import get_session
 from app.services.planner import select_today
@@ -27,7 +27,7 @@ async def today(db: AsyncSession = Depends(get_session)):
 
     # XP on the wall is earned today, not the lifetime total.
     today = local_today()
-    tz = timezone(timedelta(hours=1))
+    tz = timezone(timedelta(hours=settings.tz_offset_hours))
     start = datetime(today.year, today.month, today.day, tzinfo=tz).astimezone(timezone.utc)
     end = (datetime(today.year, today.month, today.day, tzinfo=tz) + timedelta(days=1)).astimezone(timezone.utc)
     xp_result = await db.execute(
