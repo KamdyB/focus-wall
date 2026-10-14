@@ -152,9 +152,22 @@ export default function StudyLab() {
   const [coachQuestion, setCoachQuestion] = useState("");
   const [coachReply, setCoachReply] = useState("");
   const [coachBusy, setCoachBusy] = useState(false);
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const [lessonMode, setLessonMode] = useState<"practice" | "assessment">("practice");
+  const [lessonAnswers, setLessonAnswers] = useState<Record<number, number>>({});
+  const [practiceEvidence, setPracticeEvidence] = useState("");
+  const [practiceConfirmed, setPracticeConfirmed] = useState(false);
+  const [lessonFeedback, setLessonFeedback] = useState("");
   const resources = useMemo(() => [...RESOURCES, ...saved.customResources], [saved.customResources]);
   const current = resources.find((r) => r.id === saved.selected) ?? RESOURCES[0];
-  const nextStepId = ROADMAP.flatMap((phase) => phase.steps).find((step) => !saved.completed.includes(step.id))?.id;
+  const nextStepId = ALL_STEPS.find((step) => !saved.mastered.includes(step.id))?.id;
+  const activeLesson = ALL_STEPS.find((step) => step.id === (activeLessonId || nextStepId)) ?? ALL_STEPS[0];
+  const activeChecks = useMemo(() => { const bank = CHECKS[activeLesson.phaseId] ?? CHECKS["python-core"]; const offset = activeLesson.index % bank.length; return [0, 1, 2].map((n) => bank[(offset + n) % bank.length]); }, [activeLesson.id, activeLesson.phaseId, activeLesson.index]);
+  const today = localDay();
+  const xpAwards = Object.values(saved.xpAwards);
+  const studyXpToday = xpAwards.filter((award) => award.date === today).reduce((sum, award) => sum + award.points, 0);
+  const studyXpTotal = xpAwards.reduce((sum, award) => sum + award.points, 0);
+  const studyStreakDays = calculateStudyStreak(saved.xpAwards);
   const remaining = Math.max(0, secondsLeft);
   const time = `${String(Math.floor(remaining / 3600)).padStart(2, "0")}:${String(Math.floor((remaining % 3600) / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
 
@@ -200,6 +213,8 @@ export default function StudyLab() {
         return {
           selected: cloudIsNewer ? cloud.selected : local.selected,
           completed: [...new Set([...cloud.completed, ...local.completed])],
+          mastered: [...new Set([...(cloud.mastered || []), ...(local.mastered || [])])],
+          xpAwards: { ...(cloud.xpAwards || {}), ...(local.xpAwards || {}) },
           notes: cloudIsNewer ? cloud.notes : local.notes,
           records: [...recordMap.values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
           customResources: [...resourceMap.values()],
@@ -228,6 +243,10 @@ export default function StudyLab() {
         const merged: StudySaved = cloud ? {
           selected: cloudUpdatedAt > saved.updatedAt ? cloud.selected : saved.selected,
           completed: [...new Set([...(cloud.completed || []), ...saved.completed, ...(remote.progress?.completed_stages || [])])],
+          mastered: [...new Set([...(cloud.mastered || []), ...saved.mastered])],
+          xpAwards: { ...(cloud.xpAwards || {}), ...saved.xpAwards },
+          mastered: [...new Set([...(cloud.mastered || []), ...saved.mastered])],
+          xpAwards: { ...(cloud.xpAwards || {}), ...saved.xpAwards },
           notes: cloudUpdatedAt > saved.updatedAt ? cloud.notes : saved.notes,
           records: [...new Map([...(cloud.records || []), ...saved.records].map((record) => [record.id, record])).values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
           customResources: [...new Map([...(cloud.customResources || []), ...saved.customResources].map((resource) => [resource.id, resource])).values()],
@@ -236,6 +255,10 @@ export default function StudyLab() {
           ...saved,
           selected: saved.updatedAt > 0 ? saved.selected : (remote.progress?.selected_resource || saved.selected),
           completed: [...new Set([...saved.completed, ...(remote.progress?.completed_stages || [])])],
+          mastered: [...new Set(saved.mastered)],
+          xpAwards: { ...saved.xpAwards },
+          mastered: [...new Set(saved.mastered)],
+          xpAwards: { ...saved.xpAwards },
           updatedAt: saved.updatedAt,
         };
         if (JSON.stringify(merged) !== JSON.stringify(saved)) setSaved(merged);
