@@ -132,7 +132,7 @@ const DURATIONS = [25, 50, 90, 120, 180, 240, 360, 480];
 function loadSaved(): StudySaved {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const parsed = JSON.parse(raw); return { selected: "python-tutorial", completed: [], mastered: [], xpAwards: {}, notes: "", records: [], customResources: [], updatedAt: 0, ...parsed, mastered: Array.isArray(parsed.mastered) ? parsed.mastered : [], xpAwards: parsed.xpAwards && typeof parsed.xpAwards === "object" ? parsed.xpAwards : {} }; }
+    if (raw) { const parsed = JSON.parse(raw); return { selected: "python-tutorial", completed: [], notes: "", records: [], customResources: [], updatedAt: 0, ...parsed, mastered: Array.isArray(parsed.mastered) ? parsed.mastered : [], xpAwards: parsed.xpAwards && typeof parsed.xpAwards === "object" ? parsed.xpAwards : {} }; }
   } catch { /* storage may be unavailable */ }
   return { selected: "python-tutorial", completed: [], mastered: [], xpAwards: {}, notes: "", records: [], customResources: [], updatedAt: 0 };
 }
