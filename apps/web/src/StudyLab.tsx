@@ -283,8 +283,54 @@ export default function StudyLab() {
   function patchSaved(patch: Partial<typeof saved>) { setSaved((s) => ({ ...s, ...patch, updatedAt: Date.now() })); }
   function startTimer() { if (!running) { if (secondsLeft <= 0) setSecondsLeft(minutes * 60); setRunning(true); } }
   function resetTimer() { setRunning(false); setSecondsLeft(0); }
-  function toggleStep(step: string) {
-    patchSaved({ completed: saved.completed.includes(step) ? saved.completed.filter((x) => x !== step) : [...saved.completed, step] });
+  function openLesson(stepId: string) {
+    const target = ALL_STEPS.find((step) => step.id === stepId);
+    if (!target) return;
+    if (saved.mastered.includes(stepId)) {
+      setActiveLessonId(stepId);
+    } else if (stepId === nextStepId) {
+      setActiveLessonId(stepId);
+    } else {
+      setLessonFeedback("This tile is locked. Complete the highlighted step, or open it and pass its short assessment to test out.");
+      setActiveLessonId(stepId);
+      setLessonMode("assessment");
+    }
+    setLessonAnswers({});
+    setPracticeEvidence("");
+    setPracticeConfirmed(false);
+    setLessonFeedback("");
+  }
+  function awardLesson(stepId: string, mode: "practice" | "assessment", points: number) {
+    if (saved.mastered.includes(stepId)) {
+      setLessonFeedback("Already mastered — no duplicate XP awarded.");
+      return;
+    }
+    const award: XpAward = { date: localDay(), points, mode };
+    patchSaved({
+      completed: [...new Set([...saved.completed, stepId])],
+      mastered: [...new Set([...saved.mastered, stepId])],
+      xpAwards: { ...saved.xpAwards, [stepId]: award },
+      records: [{
+        id: `mastery-${stepId}-${Date.now()}`,
+        date: new Date().toISOString(),
+        resource: activeLesson.title,
+        minutes: Math.max(1, Math.round((minutes * 60 - secondsLeft) / 60)),
+        evidence: mode === "assessment" ? `Passed the ${activeLesson.phaseTitle} mastery check and tested out of this step.` : practiceEvidence.trim(),
+        steps: [...new Set([...saved.mastered, stepId])],
+      }, ...saved.records],
+    });
+    setLessonFeedback(mode === "assessment" ? "Assessment passed. Step mastered and next tile unlocked." : "Practice evidence saved. Step mastered and next tile unlocked.");
+    setPracticeConfirmed(false);
+  }
+  function submitAssessment() {
+    const answered = activeChecks.every((_, index) => lessonAnswers[index] !== undefined);
+    if (!answered) { setLessonFeedback("Answer all three questions before submitting."); return; }
+    const score = activeChecks.reduce((sum, check, index) => sum + (lessonAnswers[index] === check.answer ? 1 : 0), 0);
+    if (score === activeChecks.length) {
+      awardLesson(activeLesson.id, "assessment", 15);
+    } else {
+      setLessonFeedback(`You scored ${score}/${activeChecks.length}. Review the explanations, then retry. This step stays locked until you pass.`);
+    }
   }
   function logEvidence() {
     const note = evidence.trim() || saved.notes.trim();
