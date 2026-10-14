@@ -312,7 +312,7 @@ export default function StudyLab() {
         date: new Date().toISOString(),
         resource: activeLesson.title,
         minutes: timerStarted ? Math.max(1, Math.round((minutes * 60 - secondsLeft) / 60)) : 1,
-        evidence: mode === "assessment" ? `Passed the ${activeLesson.phaseTitle} mastery check and tested out of this step.` : practiceEvidence.trim(),
+        evidence: mode === "assessment" ? `Test-out evidence: ${testOutEvidence.trim()}\nPassed the ${activeLesson.phaseTitle} mastery check.` : practiceEvidence.trim(),
         steps: [...new Set([...saved.mastered, stepId])],
       }, ...saved.records],
     });
