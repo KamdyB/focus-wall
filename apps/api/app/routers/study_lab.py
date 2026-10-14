@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -31,13 +32,15 @@ class StudyRecord(BaseModel):
     resource: str = Field(max_length=240)
     minutes: int = Field(ge=0, le=480)
     evidence: str = Field(max_length=12000)
-    steps: list[str] = Field(default_factory=list, max_length=8)
+    steps: list[str] = Field(default_factory=list, max_length=200)
 
 
 class StudyState(BaseModel):
     model_config = ConfigDict(extra="forbid")
     selected: str = Field(default="spiral-matrix", max_length=100)
-    completed: list[str] = Field(default_factory=list, max_length=8)
+    completed: list[str] = Field(default_factory=list, max_length=200)
+    mastered: list[str] = Field(default_factory=list, max_length=200)
+    xpAwards: dict[str, dict[str, Any]] = Field(default_factory=dict)
     notes: str = Field(default="", max_length=50000)
     records: list[StudyRecord] = Field(default_factory=list, max_length=2000)
     customResources: list[StudyResource] = Field(default_factory=list, max_length=1000)
@@ -66,6 +69,11 @@ def _decode(row: StudyLabState | None) -> dict[str, Any] | None:
     except (TypeError, json.JSONDecodeError):
         return None
     return value if isinstance(value, dict) else None
+
+
+def _valid_stage(stage: str) -> bool:
+    # Accept the older named stages plus stable, slug-like IDs for interactive lessons.
+    return stage in ALLOWED_STAGES or bool(re.fullmatch(r"[a-z0-9][a-z0-9-]{0,99}", stage))
 
 
 def _is_full_state(data: dict[str, Any] | None) -> bool:
@@ -104,11 +112,11 @@ async def get_state(db: AsyncSession = Depends(get_session)) -> dict:
 @router.put("/state")
 async def save_state(payload: StudyStateIn, db: AsyncSession = Depends(get_session)) -> dict:
     data = payload.data.model_dump(by_alias=True)
-    if any(stage not in ALLOWED_STAGES for stage in data["completed"]):
-        raise HTTPException(status_code=422, detail="Unknown mastery stage")
+    if any(not _valid_stage(stage) for stage in data["completed"] + data["mastered"]):
+        raise HTTPException(status_code=422, detail="Invalid lesson progress identifier")
     for record in data["records"]:
-        if any(stage not in ALLOWED_STAGES for stage in record["steps"]):
-            raise HTTPException(status_code=422, detail="Unknown mastery stage in evidence record")
+        if any(not _valid_stage(stage) for stage in record["steps"]):
+            raise HTTPException(status_code=422, detail="Invalid lesson progress identifier in evidence record")
     encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     if len(encoded.encode("utf-8")) > MAX_STATE_BYTES:
         raise HTTPException(status_code=413, detail="Study data exceeds 1.5 MB. Export a backup and shorten old notes before syncing.")
