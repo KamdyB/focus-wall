@@ -220,6 +220,8 @@ export function saveStudyProgress(progress: StudyProgress): Promise<{ saved: boo
 export type StudyCloudState = {
   selected: string;
   completed: string[];
+  mastered?: string[];
+  xpAwards?: Record<string, { date: string; points: number; mode: "practice" | "assessment" }>;
   notes: string;
   records: Array<{ id: string; date: string; resource: string; minutes: number; evidence: string; steps: string[] }>;
   customResources: Array<{ id: string; title: string; url?: string; area: string; note: string }>;
