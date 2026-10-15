@@ -332,12 +332,37 @@ export default function StudyLab() {
   }
   function logEvidence() {
     const note = evidence.trim() || saved.notes.trim();
-    if (!note) return;
+    if (!note) {
+      setCloudStatus("Nothing logged yet. Add evidence or a note first.");
+      return;
+    }
     const elapsed = timerStarted ? Math.max(1, Math.round((minutes * 60 - secondsLeft) / 60)) : 1;
-    const record: StudyRecord = { id: `${Date.now()}`, date: new Date().toISOString(), resource: current.title, minutes: elapsed, evidence: note, steps: [...saved.completed] };
+    const record: StudyRecord = { id: `evidence-${Date.now()}`, date: new Date().toISOString(), resource: current.title, minutes: elapsed, evidence: note, steps: [...saved.completed] };
     patchSaved({ records: [record, ...saved.records], notes: saved.notes });
     setEvidence("");
-    resetTimer();
+    setCloudStatus("Evidence saved on this device. Cloud sync will run when connected.");
+  }
+  function endSession() {
+    const elapsedSeconds = timerStarted ? Math.max(0, minutes * 60 - secondsLeft) : 0;
+    if (!timerStarted || elapsedSeconds === 0) {
+      setLessonFeedback("Start the focus timer before ending a session.");
+      setRunning(false);
+      return;
+    }
+    const note = practiceEvidence.trim() || evidence.trim();
+    const record: StudyRecord = {
+      id: `session-${Date.now()}`,
+      date: new Date().toISOString(),
+      resource: activeLesson.title,
+      minutes: Math.max(1, Math.round(elapsedSeconds / 60)),
+      evidence: note || `Focus session completed for “${activeLesson.title}”. Add a short evidence note when you are ready.`,
+      steps: [...saved.mastered],
+    };
+    patchSaved({ records: [record, ...saved.records] });
+    setRunning(false);
+    setSecondsLeft(0);
+    setTimerStarted(false);
+    setLessonFeedback(`Session saved: ${record.minutes} minute(s) recorded for “${activeLesson.title}”.`);
   }
   function addResource() {
     const title = customTitle.trim();
@@ -437,7 +462,7 @@ export default function StudyLab() {
         <div className="lesson-mode-switch"><button type="button" disabled={!canPractice} className={lessonMode === "practice" ? "selected" : ""} onClick={() => { setLessonMode("practice"); setLessonAnswers({}); setTestOutEvidence(""); setTestOutConfirmed(false); setLessonFeedback(""); }}>LEARN & PRACTISE</button><button type="button" className={lessonMode === "assessment" ? "selected" : ""} onClick={() => { setLessonMode("assessment"); setLessonAnswers({}); setTestOutEvidence(""); setTestOutConfirmed(false); setLessonFeedback(""); }}>TEST OUT</button></div>
         {lessonMode === "practice" && canPractice ? <><div className="lesson-checklist"><p><strong>1. Learn.</strong> Open the resource and focus only on this lesson.</p><p><strong>2. Try.</strong> Close the reference and solve/build the task yourself.</p><p><strong>3. Prove.</strong> Record what you made, tested, or can explain.</p></div><label className="study-label" htmlFor="practice-evidence">What did you actually do? (required)</label><textarea id="practice-evidence" className="field" rows={4} value={practiceEvidence} onChange={(event) => setPracticeEvidence(event.target.value)} placeholder="Describe your attempt, result, one mistake you fixed, and what you can now explain."/><label className="lesson-confirm"><input type="checkbox" checked={practiceConfirmed} onChange={(event) => setPracticeConfirmed(event.target.checked)}/><span>I did the work myself and can explain the result without copying.</span></label><button type="button" className="ghost-btn" disabled={saved.mastered.includes(activeLesson.id) || !practiceConfirmed || practiceEvidence.trim().length < 30} onClick={() => awardLesson(activeLesson.id, "practice", 10)}>COMPLETE LESSON · +10 XP</button></> : <><p className="study-muted">{lessonMode === "practice" ? "This tile is locked for practice. Pass the test-out challenge to demonstrate readiness, or finish the earlier step first." : "Answer all three questions correctly to test out of this step and unlock the next tile."}</p><div className="lesson-quiz">{activeChecks.map((check, index) => <fieldset className="lesson-question" key={`${activeLesson.id}-${index}`}><legend>{index + 1}. {check.question}</legend>{check.options.map((option, optionIndex) => <label className="lesson-option" key={option}><input type="radio" name={`quiz-${activeLesson.id}-${index}`} checked={lessonAnswers[index] === optionIndex} onChange={() => setLessonAnswers((answers) => ({ ...answers, [index]: optionIndex }))}/><span>{option}</span></label>)}{lessonAnswers[index] !== undefined && <p className={lessonAnswers[index] === check.answer ? "lesson-correct" : "lesson-incorrect"}>{lessonAnswers[index] === check.answer ? "Correct. " : "Review: "}{check.why}</p>}</fieldset>)}</div><label className="study-label" htmlFor="test-out-evidence">Show what proves you already know this skill (required)</label><textarea id="test-out-evidence" className="field" rows={3} value={testOutEvidence} onChange={(event) => setTestOutEvidence(event.target.value)} placeholder="Describe a solution, exercise, project, or result you can explain and reproduce. Be specific to this step."/><label className="lesson-confirm"><input type="checkbox" checked={testOutConfirmed} onChange={(event) => setTestOutConfirmed(event.target.checked)}/><span>I can demonstrate this skill without copying a solution.</span></label><button type="button" className="ghost-btn" disabled={saved.mastered.includes(activeLesson.id) || !testOutConfirmed || testOutEvidence.trim().length < 30 || activeChecks.some((_, index) => lessonAnswers[index] === undefined)} onClick={submitAssessment}>SUBMIT MASTERY CHECK</button></>}
         {lessonFeedback && <p className="lesson-feedback" role="status">{lessonFeedback}</p>}
-        <div className="lesson-timer"><div><strong>Focus timer</strong><span>{time}</span></div><div className="study-actions">{!running ? <button type="button" className="chip" onClick={startTimer}>{secondsLeft > 0 ? "RESUME" : "START SESSION"}</button> : <button type="button" className="chip" onClick={() => setRunning(false)}>PAUSE</button>}<button type="button" className="chip" onClick={resetTimer}>RESET</button></div></div>
+        <div className="lesson-timer"><div><strong>Focus timer</strong><span>{time}</span></div><div className="study-actions">{!running ? <button type="button" className="chip" onClick={startTimer}>{secondsLeft > 0 ? "RESUME" : "START SESSION"}</button> : <button type="button" className="chip" onClick={() => setRunning(false)}>PAUSE</button>}{timerStarted && <button type="button" className="ghost-btn" onClick={endSession}>END SESSION &amp; SAVE</button>}<button type="button" className="chip" onClick={resetTimer}>RESET</button></div></div>
       </section>      <details className="study-extras"><summary>Notes, extra resources & backups (optional)</summary>
       <div className="section-label">Evidence, not vibes</div>
       <label className="study-label" htmlFor="study-notes">Your own explanation / attempt / mistakes</label>
@@ -445,7 +470,7 @@ export default function StudyLab() {
       <label className="study-label" htmlFor="study-evidence">What did you actually finish?</label>
       <textarea id="study-evidence" className="field" rows={3} value={evidence} onChange={(e) => setEvidence(e.target.value)} placeholder="Required evidence: solution/commit, completed practice, or detailed concept note." />
       <div className="study-actions">
-        <button className="ghost-btn" onClick={logEvidence} disabled={!evidence.trim() && !saved.notes.trim()}>LOG EVIDENCE</button>
+        <button type="button" className="ghost-btn" onClick={logEvidence} disabled={!evidence.trim() && !saved.notes.trim()}>LOG EVIDENCE</button>
         <button className="chip" onClick={exportLog}>EXPORT LOCAL BACKUP</button>
         <button className="chip" onClick={syncAllNow} disabled={cloudBusy}>{cloudBusy ? "SYNCING…" : "SYNC ALL STUDY DATA"}</button>
         <button className="chip" onClick={() => setShowAdd((v) => !v)}>{showAdd ? "CANCEL" : "ADD RESOURCE"}</button>
